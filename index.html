@@ -626,7 +626,9 @@
       z-index: 60;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
       flex-shrink: 0;
-      min-height: 52px;
+      height: 56px;
+      min-height: 56px;
+      box-sizing: border-box;
     }
 
     .chat-left-info {
@@ -634,13 +636,13 @@
       align-items: center;
       gap: 8px;
       min-width: 0;
-      flex: 1;
+      flex: 1 1 auto;
       overflow: hidden;
     }
 
     .room-avatar {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       background: #00a884;
       display: flex;
@@ -658,7 +660,8 @@
       justify-content: center;
       overflow: hidden;
       min-width: 0;
-      gap: 1px;
+      flex: 1 1 auto;
+      gap: 2px;
     }
 
     .room-name-title {
@@ -668,8 +671,10 @@
       overflow: hidden;
       text-overflow: ellipsis;
       color: #e9edef;
-      line-height: 1.2;
-      display: block;
+      line-height: 1.25;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
 
     .room-sub-meta {
@@ -677,7 +682,7 @@
       color: #8696a0;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -722,7 +727,8 @@
 
     /* WhatsApp Wallpaper & Message Container */
     .chat-messages-container {
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
       padding: 12px 10px;
       display: flex;
@@ -836,6 +842,41 @@
       margin-top: 2px;
       float: right;
       padding-left: 10px;
+    }
+
+    .wa-status-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.72rem;
+      line-height: 1;
+    }
+
+    .wa-status-badge.sending {
+      color: #8696a0;
+    }
+
+    .wa-status-badge.sent {
+      color: #8696a0;
+    }
+
+    .wa-status-badge.delivered {
+      color: #53bdeb;
+      font-weight: bold;
+    }
+
+    .wa-status-badge.failed {
+      color: #ff4d4f;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .msg-failed-action {
+      font-size: 0.65rem;
+      color: #ff4d4f;
+      margin-left: 3px;
+      text-decoration: underline;
+      cursor: pointer;
     }
 
     .wa-check {
@@ -1217,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v6</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v7</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1387,10 +1428,14 @@
       <div class="chat-left-info">
         <div class="room-avatar" id="roomAvatarText">S</div>
         <div class="room-name-meta">
-          <div class="room-name-title" id="headerRoomTitle">Chat <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500;">v6</span></div>
+          <div class="room-name-title">
+            <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v7</span>
+          </div>
           <div class="room-sub-meta">
-            <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600;"></span>
-            <span id="connectionStatusText">Online</span>
+            <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
+            <span style="color: #555;">•</span>
+            <span id="connectionStatusText" style="overflow: hidden; text-overflow: ellipsis;">Connecting...</span>
           </div>
         </div>
       </div>
@@ -1621,23 +1666,30 @@
     }
 
     async function encryptPayload(text) {
-      if (!roomCryptoKey) return { ciphertext: text, isEncrypted: false };
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const enc = new TextEncoder();
-      const encrypted = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv },
-        roomCryptoKey,
-        enc.encode(text)
-      );
-      return {
-        ciphertext: Array.from(new Uint8Array(encrypted)),
-        iv: Array.from(iv),
-        isEncrypted: true
-      };
+      if (!roomCryptoKey) {
+        throw new Error("Security Error: Room encryption key is not initialized");
+      }
+      try {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const encrypted = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv: iv },
+          roomCryptoKey,
+          enc.encode(text)
+        );
+        return {
+          ciphertext: Array.from(new Uint8Array(encrypted)),
+          iv: Array.from(iv),
+          isEncrypted: true
+        };
+      } catch (err) {
+        throw new Error("Encryption failed: " + (err.message || err));
+      }
     }
 
     async function decryptPayload(payload) {
-      if (!payload || !payload.isEncrypted || !roomCryptoKey) return payload ? payload.ciphertext : '';
+      if (!payload || !payload.isEncrypted) return '';
+      if (!roomCryptoKey) return '[Encryption Key Unavailable]';
       try {
         const decrypted = await crypto.subtle.decrypt(
           { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
@@ -1965,12 +2017,18 @@
         eventSource.close();
         eventSource = null;
       }
+      if (peerPresenceInterval) {
+        clearInterval(peerPresenceInterval);
+        peerPresenceInterval = null;
+      }
       document.getElementById('callOverlay').classList.add('hidden');
       document.getElementById('incomingCallToast').classList.add('hidden');
       document.getElementById('authModal').classList.add('hidden');
       document.getElementById('chat-screen').classList.add('hidden');
       document.getElementById('music-screen').classList.remove('hidden');
       document.getElementById('musicSearchInput').value = '';
+      const chatInput = document.getElementById('chatMessageInput');
+      if (chatInput) chatInput.blur();
     }
 
     document.getElementById('panicButton').addEventListener('click', triggerPanicLock);
@@ -2080,7 +2138,7 @@
       document.getElementById('music-screen').classList.add('hidden');
       document.getElementById('chat-screen').classList.remove('hidden');
 
-      document.getElementById('headerRoomTitle').innerHTML = `Chat with ${targetAlias} <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500;">v6</span>`;
+      document.getElementById('headerRoomTitle').textContent = `Chat with ${targetAlias}`;
       document.getElementById('myAccountBadge').textContent = `Me: ${myAlias}`;
       document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
       document.getElementById('connectionStatusText').textContent = 'Connecting...';
@@ -2121,7 +2179,7 @@
               if (parsed.type === 'chat-msg' && parsed.payload) {
                 const plainText = await decryptPayload(parsed.payload);
                 const isSelf = (parsed.senderAlias === myAlias);
-                appendChatMessage(parsed.senderAlias, plainText, isSelf, parsed.timestamp, parsed.replyTo, false);
+                appendChatMessage(parsed.senderAlias, plainText, isSelf, parsed.timestamp, parsed.replyTo, false, parsed.msgId, 'delivered');
               }
             }
           } catch(err) {}
@@ -2159,12 +2217,13 @@
         eventSource = new EventSource(`${RELAY_URL}/sse`);
 
         eventSource.onopen = () => {
-          document.getElementById('connectionStatusText').textContent = 'Online (Connected)';
+          updatePeerPresenceStatus();
           // Send instant presence ping
           broadcastSignal({
             type: 'presence',
             senderAlias: myAlias,
-            senderPeerId: myPeerId
+            senderPeerId: myPeerId,
+            targetAlias: targetAlias
           });
         };
 
@@ -2172,7 +2231,7 @@
           try {
             const dataObj = JSON.parse(event.data);
             if (dataObj.event === 'open') {
-              document.getElementById('connectionStatusText').textContent = 'Online (Connected)';
+              updatePeerPresenceStatus();
               return;
             }
             if (dataObj.event === 'message' && dataObj.message) {
@@ -2184,7 +2243,23 @@
 
         eventSource.onerror = () => {
           document.getElementById('connectionStatusText').textContent = 'Reconnecting...';
+          document.getElementById('connectionStatusText').style.color = '#e0a800';
         };
+
+        // Start heartbeat presence ping every 25 seconds
+        if (peerPresenceInterval) clearInterval(peerPresenceInterval);
+        peerPresenceInterval = setInterval(() => {
+          if (eventSource && eventSource.readyState === EventSource.OPEN) {
+            broadcastSignal({
+              type: 'presence',
+              senderAlias: myAlias,
+              senderPeerId: myPeerId,
+              targetAlias: targetAlias
+            });
+          }
+          updatePeerPresenceStatus();
+        }, 20000);
+
       } catch (err) {
         console.error('SSE Relay init error:', err);
       }
@@ -2211,47 +2286,93 @@
       });
     }
 
-    async function broadcastSignal(payload) {
+    async function broadcastSignal(payload, timeoutMs = 8000) {
       const payloadString = JSON.stringify(payload);
 
-      // 1. Local BroadcastChannel
+      // 1. Local BroadcastChannel for same-device tabs/PWAs
       if (broadcastChan) {
         try { broadcastChan.postMessage(payload); } catch(e) {}
       }
 
-      // 2. High-speed HTTPS POST to ntfy Relay
+      // 2. High-speed HTTPS POST to ntfy Relay with timeout and status check
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
       try {
-        fetch(RELAY_URL, {
+        const response = await fetch(RELAY_URL, {
           method: 'POST',
           headers: {
             'Content-Type': 'text/plain',
             'Priority': 'urgent'
           },
-          body: payloadString
-        }).catch(() => {});
-      } catch(e) {}
+          body: payloadString,
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        return response.ok;
+      } catch(e) {
+        clearTimeout(timer);
+        console.warn('Relay POST failed or timed out:', e);
+        return false;
+      }
     }
 
     async function handleIncomingData(data) {
-      if (!data || !data.type || data.senderAlias === myAlias) return;
+      if (!data || !data.type) return;
+
+      // Echo protection: sender never processes their own message from relay
+      if (data.senderAlias === myAlias) return;
 
       switch (data.type) {
         case 'presence':
         case 'handshake':
-          document.getElementById('connectionStatusText').textContent = 'Online (Connected)';
+          if (data.senderAlias === targetAlias) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+          }
           break;
 
         case 'chat-msg':
-          const plainText = await decryptPayload(data.payload);
-          appendChatMessage(data.senderAlias, plainText, false, data.timestamp, data.replyTo);
+          if (data.senderAlias === targetAlias) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+
+            // Decrypt incoming message
+            const plainText = await decryptPayload(data.payload);
+            appendChatMessage(data.senderAlias, plainText, false, data.timestamp, data.replyTo, true, data.msgId);
+
+            // Immediately send back explicit acknowledgment with the message ID
+            if (data.msgId) {
+              broadcastSignal({
+                type: 'msg-ack',
+                ackMsgId: data.msgId,
+                senderAlias: myAlias,
+                targetAlias: data.senderAlias,
+                timestamp: Date.now()
+              });
+            }
+          }
+          break;
+
+        case 'msg-ack':
+          // Recipient confirmed receipt of our message!
+          if (data.targetAlias === myAlias && data.ackMsgId) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+            updateMessageStatus(data.ackMsgId, 'delivered');
+          }
           break;
 
         case 'typing':
-          showTypingIndicator(data.senderAlias);
+          if (data.senderAlias === targetAlias) {
+            showTypingIndicator(data.senderAlias);
+          }
           break;
 
         case 'call-request':
-          showIncomingCallModal(data.senderAlias, data.callType);
+          if (data.senderAlias === targetAlias) {
+            showIncomingCallModal(data.senderAlias, data.callType);
+          }
           break;
 
         case 'call-declined':
@@ -2261,14 +2382,40 @@
       }
     }
 
-    /* Message Rendering with Deduplication, Reply Quote, & 24h Lifetime */
-    const renderedMsgMap = new Set();
+    /* Presence tracking & Peer heartbeats */
+    let lastPeerHeartbeat = 0;
+    let peerPresenceInterval = null;
 
-    function appendChatMessage(sender, text, isSelf, timestamp, replyTo, shouldScroll = true) {
+    function updatePeerPresenceStatus() {
+      const statusEl = document.getElementById('connectionStatusText');
+      if (!statusEl) return;
+      if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+        statusEl.textContent = 'Reconnecting...';
+        statusEl.style.color = '#e0a800';
+        return;
+      }
+
+      // Check if peer has sent presence or message within last 35 seconds
+      if (lastPeerHeartbeat > 0 && (Date.now() - lastPeerHeartbeat < 35000)) {
+        statusEl.textContent = `${targetAlias} Online`;
+        statusEl.style.color = '#00a884';
+      } else {
+        statusEl.textContent = 'Relay Connected';
+        statusEl.style.color = '#8696a0';
+      }
+    }
+
+    /* Message Rendering with Deduplication, Status Tracking, Reply Quote, & 24h Lifetime */
+    const renderedMsgMap = new Set();
+    const pendingOutgoingMsgs = new Map(); // msgId -> { msgId, text, timestamp, replyTo, status, retryCount }
+
+    function appendChatMessage(sender, text, isSelf, timestamp, replyTo, shouldScroll = true, msgId = null, initialStatus = 'sent') {
       const msgTime = timestamp || Date.now();
       const age = Date.now() - msgTime;
 
       if (age >= ONE_DAY_MS) return;
+
+      const effectiveMsgId = msgId || (isSelf ? `out-${msgTime}-${Math.random().toString(36).substr(2, 6)}` : `in-${msgTime}-${Math.random().toString(36).substr(2, 6)}`);
 
       const dedupeKey = `${sender}-${msgTime}-${text.substring(0, 15)}`;
       if (renderedMsgMap.has(dedupeKey)) return;
@@ -2277,6 +2424,7 @@
       const container = document.getElementById('chatMessages');
       const row = document.createElement('div');
       row.className = `msg-row ${isSelf ? 'outgoing' : 'incoming'}`;
+      row.id = `row-${effectiveMsgId}`;
       row.title = 'Tap or click to reply';
 
       const timeStr = new Date(msgTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -2291,6 +2439,19 @@
         `;
       }
 
+      let statusHtml = '';
+      if (isSelf) {
+        if (initialStatus === 'sending') {
+          statusHtml = `<span class="wa-status-badge sending" id="status-${effectiveMsgId}" title="Sending to relay...">🕒</span>`;
+        } else if (initialStatus === 'sent') {
+          statusHtml = `<span class="wa-status-badge sent" id="status-${effectiveMsgId}" title="Sent to relay">✓</span>`;
+        } else if (initialStatus === 'delivered') {
+          statusHtml = `<span class="wa-status-badge delivered" id="status-${effectiveMsgId}" title="Delivered to recipient">✓✓</span>`;
+        } else if (initialStatus === 'failed') {
+          statusHtml = `<span class="wa-status-badge failed" id="status-${effectiveMsgId}" title="Failed to send">! <span class="msg-failed-action" onclick="retryFailedMessage('${effectiveMsgId}')">Retry</span></span>`;
+        }
+      }
+
       row.innerHTML = `
         <div class="msg-bubble">
           ${quoteHtml}
@@ -2298,13 +2459,14 @@
           <div style="display:inline;">${escapeHtml(text)}</div>
           <div class="msg-meta-row">
             <span>${timeStr}</span>
-            ${isSelf ? '<span class="wa-check">✓✓</span>' : ''}
+            ${statusHtml}
           </div>
         </div>
       `;
 
       // Tap message to reply
       row.addEventListener('click', (e) => {
+        if (e.target.closest('.msg-failed-action')) return;
         e.stopPropagation();
         setReplyTarget(sender, text);
       });
@@ -2319,8 +2481,79 @@
       setTimeout(() => {
         row.remove();
         renderedMsgMap.delete(dedupeKey);
+        pendingOutgoingMsgs.delete(effectiveMsgId);
       }, remainingLifetime);
     }
+
+    function updateMessageStatus(msgId, status) {
+      const badge = document.getElementById(`status-${msgId}`);
+      if (!badge) return;
+
+      badge.className = `wa-status-badge ${status}`;
+      if (status === 'sending') {
+        badge.innerHTML = '🕒';
+        badge.title = 'Sending to relay...';
+      } else if (status === 'sent') {
+        badge.innerHTML = '✓';
+        badge.title = 'Sent to relay';
+      } else if (status === 'delivered') {
+        badge.innerHTML = '✓✓';
+        badge.title = 'Delivered to recipient';
+      } else if (status === 'failed') {
+        badge.innerHTML = `! <span class="msg-failed-action" onclick="retryFailedMessage('${msgId}')">Retry</span>`;
+        badge.title = 'Failed to send. Click Retry.';
+      }
+
+      if (pendingOutgoingMsgs.has(msgId)) {
+        const item = pendingOutgoingMsgs.get(msgId);
+        item.status = status;
+        if (status === 'delivered') {
+          // Delivered successfully, can be kept or pruned
+        }
+      }
+    }
+
+    async function retryFailedMessage(msgId) {
+      const item = pendingOutgoingMsgs.get(msgId);
+      if (!item) {
+        showToast('Message details not found for retry');
+        return;
+      }
+
+      if (item.retryCount >= 4) {
+        showToast('Max retries reached. Please check network.');
+        return;
+      }
+
+      item.retryCount = (item.retryCount || 0) + 1;
+      updateMessageStatus(msgId, 'sending');
+
+      try {
+        const encryptedPayload = await encryptPayload(item.text);
+        const packet = {
+          type: 'chat-msg',
+          msgId: msgId,
+          senderAlias: myAlias,
+          senderPeerId: myPeerId,
+          targetAlias: targetAlias,
+          payload: encryptedPayload,
+          timestamp: item.timestamp,
+          replyTo: item.replyTo
+        };
+
+        const success = await broadcastSignal(packet);
+        if (success) {
+          updateMessageStatus(msgId, 'sent');
+        } else {
+          updateMessageStatus(msgId, 'failed');
+        }
+      } catch (err) {
+        console.error('Retry error:', err);
+        updateMessageStatus(msgId, 'failed');
+      }
+    }
+
+    window.retryFailedMessage = retryFailedMessage;
 
     function escapeHtml(str) {
       return (str || '').replace(/[&<>"']/g, (m) => ({
@@ -2333,21 +2566,54 @@
       const text = input.value.trim();
       if (!text) return;
 
-      const encryptedPayload = await encryptPayload(text);
+      if (!roomCryptoKey) {
+        showToast('Security Error: Encryption key not initialized. Message aborted.');
+        return;
+      }
 
+      let encryptedPayload;
+      try {
+        encryptedPayload = await encryptPayload(text);
+      } catch (err) {
+        showToast('Encryption failed: ' + err.message);
+        return;
+      }
+
+      const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
       const packet = {
         type: 'chat-msg',
+        msgId: msgId,
         senderAlias: myAlias,
         senderPeerId: myPeerId,
+        targetAlias: targetAlias,
         payload: encryptedPayload,
         timestamp: Date.now(),
         replyTo: activeReply ? { sender: activeReply.sender, text: activeReply.text } : null
       };
 
-      broadcastSignal(packet);
-      appendChatMessage(myAlias, text, true, packet.timestamp, packet.replyTo);
+      // Register in pending map
+      pendingOutgoingMsgs.set(msgId, {
+        msgId: msgId,
+        text: text,
+        timestamp: packet.timestamp,
+        replyTo: packet.replyTo,
+        status: 'sending',
+        retryCount: 0
+      });
+
+      // Show immediately as sending (clock)
+      appendChatMessage(myAlias, text, true, packet.timestamp, packet.replyTo, true, msgId, 'sending');
       input.value = '';
       clearReplyPreview();
+
+      // Transmit to relay with validation
+      const sentOk = await broadcastSignal(packet);
+      if (sentOk) {
+        updateMessageStatus(msgId, 'sent');
+      } else {
+        updateMessageStatus(msgId, 'failed');
+        showToast('Message not sent. Check internet connection.');
+      }
     }
 
     document.getElementById('sendChatBtn').addEventListener('click', sendCurrentChatMessage);
