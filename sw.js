@@ -1,5 +1,5 @@
 // Network-first Service Worker so updates always fetch latest code immediately
-const CACHE_NAME = 'saavn-pro-cache-v2';
+const CACHE_NAME = 'saavn-pro-cache-v3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
