@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
   <title>Saavn Pro - Music & Ambient Streams</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#121212">
@@ -50,6 +50,8 @@
       height: 100%;
       height: 100dvh;
       overflow: hidden;
+      position: fixed;
+      inset: 0;
       background-color: var(--bg-base);
       color: var(--text-main);
       font-family: var(--font-family);
@@ -86,13 +88,15 @@
       position: absolute;
       top: 0;
       left: 0;
+      right: 0;
+      bottom: 0;
       width: 100%;
       height: 100%;
-      height: 100dvh;
       display: flex;
       flex-direction: column;
       background: var(--bg-base);
       z-index: 10;
+      overflow: hidden;
     }
 
     .hidden, #callOverlay.hidden, #incomingCallToast.hidden, #authModal.hidden, #chat-screen.hidden {
@@ -111,25 +115,28 @@
     }
 
     .music-header {
-      padding: 10px 14px;
+      padding: 8px 10px;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       background: rgba(18, 18, 18, 0.98);
       border-bottom: 1px solid var(--border-subtle);
       z-index: 20;
+      flex-shrink: 0;
+      min-height: 52px;
     }
 
     .brand-logo-btn {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       background: none;
       border: none;
       cursor: pointer;
       color: var(--text-main);
       outline: none;
-      padding: 2px;
+      padding: 0;
+      flex-shrink: 0;
     }
 
     .brand-logo-btn:active {
@@ -137,32 +144,35 @@
     }
 
     .brand-icon-svg {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       fill: none;
+      flex-shrink: 0;
     }
 
     .brand-title {
-      font-size: 1.05rem;
+      font-size: 0.95rem;
       font-weight: 700;
       letter-spacing: -0.3px;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
+      white-space: nowrap;
     }
 
     .brand-title span {
       color: var(--accent);
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       text-transform: uppercase;
       font-weight: 800;
       background: rgba(43, 197, 180, 0.15);
-      padding: 2px 5px;
+      padding: 1px 4px;
       border-radius: 4px;
     }
 
     .search-box-wrapper {
       flex: 1;
+      min-width: 0;
       position: relative;
       display: flex;
       align-items: center;
@@ -170,13 +180,13 @@
 
     .search-input {
       width: 100%;
-      height: 36px;
+      height: 34px;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 18px;
-      padding: 0 34px 0 34px;
+      border-radius: 17px;
+      padding: 0 28px 0 28px;
       color: var(--text-main);
-      font-size: 15px;
+      font-size: 14px;
       outline: none;
     }
 
@@ -186,7 +196,7 @@
 
     .search-icon-left {
       position: absolute;
-      left: 10px;
+      left: 8px;
       color: var(--text-muted);
       pointer-events: none;
       display: flex;
@@ -202,7 +212,7 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      padding: 4px;
+      padding: 3px;
     }
 
     /* Music Scroll Content */
@@ -210,7 +220,7 @@
       flex: 1;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      padding: 12px 14px 130px;
+      padding: 12px 14px 100px;
     }
 
     .hero-banner {
@@ -312,17 +322,16 @@
 
     /* Bottom Mini Player */
     .mini-player-bar {
-      position: absolute;
-      bottom: 0;
-      left: 0;
+      position: relative;
       width: 100%;
       background: rgba(24, 24, 24, 0.98);
       border-top: 1px solid var(--border-subtle);
-      padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
+      padding: 6px 14px calc(8px + env(safe-area-inset-bottom));
       z-index: 30;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
+      flex-shrink: 0;
     }
 
     .scrubber-container {
@@ -608,7 +617,7 @@
 
     /* WhatsApp Header */
     .chat-header {
-      padding: 6px 8px;
+      padding: 6px 10px;
       background: var(--wa-header);
       display: flex;
       align-items: center;
@@ -626,18 +635,19 @@
       gap: 8px;
       min-width: 0;
       flex: 1;
+      overflow: hidden;
     }
 
     .room-avatar {
-      width: 34px;
-      height: 34px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       background: #00a884;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       flex-shrink: 0;
       color: #fff;
     }
@@ -647,20 +657,20 @@
       flex-direction: column;
       overflow: hidden;
       min-width: 0;
+      line-height: 1.25;
     }
 
     .room-name-title {
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       color: #e9edef;
-      line-height: 1.2;
     }
 
     .room-sub-meta {
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       color: #8696a0;
       display: flex;
       align-items: center;
@@ -668,13 +678,12 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: 1.2;
     }
 
     .chat-header-actions {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 2px;
       flex-shrink: 0;
     }
 
@@ -1204,7 +1213,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v4</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v5</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1967,12 +1976,16 @@
     });
 
     /* ==============================================================
-       GLOBAL PRIVACY PROTECTION (RECENT APPS / MINIMIZE HIDE)
+       GLOBAL PRIVACY PROTECTION & AUTO-LOCK TO MUSIC SCREEN
     ============================================================== */
     const privacyOverlay = document.getElementById('globalPrivacyOverlay');
     let isPrivacyActive = false;
 
     function activatePrivacyOverlay() {
+      // 1. Immediately drop out of chat / room to disguise music player
+      triggerPanicLock();
+
+      // 2. Cover screen with solid app logo
       if (!isPrivacyActive && privacyOverlay) {
         privacyOverlay.classList.add('active');
         privacyOverlay.setAttribute('aria-hidden', 'false');
@@ -1982,16 +1995,15 @@
 
     function deactivatePrivacyOverlay() {
       if (isPrivacyActive && privacyOverlay) {
-        // Small transition buffer to prevent flicker
         setTimeout(() => {
           privacyOverlay.classList.remove('active');
           privacyOverlay.setAttribute('aria-hidden', 'true');
           isPrivacyActive = false;
-        }, 120);
+        }, 100);
       }
     }
 
-    // 1. Page Visibility API
+    // 1. Page Visibility API (switching apps / minimizing / phone call coming)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden' || document.hidden) {
         activatePrivacyOverlay();
@@ -2000,12 +2012,12 @@
       }
     });
 
-    // 2. Window Blur (immediate trigger when Recent Apps carousel starts opening)
+    // 2. Window Blur (triggers immediately when incoming call alert or Recent Apps opens)
     window.addEventListener('blur', () => {
       activatePrivacyOverlay();
     });
 
-    // 3. Window Focus (restore when user returns)
+    // 3. Window Focus (restore)
     window.addEventListener('focus', () => {
       deactivatePrivacyOverlay();
     });
@@ -2065,7 +2077,7 @@
       document.getElementById('music-screen').classList.add('hidden');
       document.getElementById('chat-screen').classList.remove('hidden');
 
-      document.getElementById('headerRoomTitle').innerHTML = `Chat with ${targetAlias} <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500;">v4</span>`;
+      document.getElementById('headerRoomTitle').innerHTML = `Chat with ${targetAlias} <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500;">v5</span>`;
       document.getElementById('myAccountBadge').textContent = `Me: ${myAlias}`;
       document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
       document.getElementById('connectionStatusText').textContent = 'Connecting...';
