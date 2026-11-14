@@ -1181,11 +1181,11 @@
       <div class="chat-left-info">
         <div class="room-avatar" id="roomAvatarText">S</div>
         <div class="room-name-meta">
-          <div class="room-name-title" id="headerRoomTitle">Private Circle</div>
+          <div class="room-name-title" id="headerRoomTitle">Chat</div>
           <div class="room-sub-meta">
-            <span id="connectionStatusText">Connecting...</span>
+            <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600;"></span>
             <span>•</span>
-            <span id="activeUserCount">Offline</span>
+            <span id="connectionStatusText">Connecting...</span>
           </div>
         </div>
       </div>
@@ -1750,7 +1750,9 @@
       document.getElementById('music-screen').classList.add('hidden');
       document.getElementById('chat-screen').classList.remove('hidden');
 
-      document.getElementById('headerRoomTitle').textContent = targetAlias;
+      // Header shows both: your identity and who you are chatting with
+      document.getElementById('headerRoomTitle').textContent = `Chat with ${targetAlias}`;
+      document.getElementById('myAccountBadge').textContent = `Me: ${myAlias}`;
       document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
       document.getElementById('connectionStatusText').textContent = 'Connecting...';
 
@@ -1779,14 +1781,15 @@
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun3.l.google.com:19302' }
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
           ]
         }
       });
 
       myPeer.on('open', (id) => {
-        document.getElementById('connectionStatusText').textContent = 'Ready • Encrypted';
-        // Connect directly to the fixed target peer
+        document.getElementById('connectionStatusText').textContent = 'Searching for ' + targetAlias + '...';
         attemptConnectToTarget();
       });
 
@@ -1799,17 +1802,20 @@
       });
 
       myPeer.on('error', (err) => {
-        // Expected when target peer is not online yet
-        console.log('Peer note:', err.type);
+        console.log('Peer info:', err.type);
+        if (err.type === 'unavailable-id') {
+          // If already connected elsewhere, reconnect cleanly
+          setTimeout(() => { initDirectP2P(); }, 2000);
+        }
       });
 
-      // Keep alive / Auto-reconnect poll every 3 seconds until connected
+      // Keep alive / Auto-reconnect poll until connected
       clearInterval(reconnectInterval);
       reconnectInterval = setInterval(() => {
         if (!activeConnection || !activeConnection.open) {
           attemptConnectToTarget();
         }
-      }, 3500);
+      }, 3000);
     }
 
     function attemptConnectToTarget() {
@@ -1823,10 +1829,14 @@
     }
 
     function setupDataConnection(conn) {
+      // Listen for data even before open
+      conn.on('data', async (data) => {
+        await handleIncomingData(data);
+      });
+
       conn.on('open', () => {
         activeConnection = conn;
-        document.getElementById('connectionStatusText').textContent = 'Online';
-        document.getElementById('activeUserCount').textContent = 'Encrypted P2P';
+        document.getElementById('connectionStatusText').textContent = 'Online (Live P2P)';
 
         // Greet peer
         conn.send({
@@ -1836,14 +1846,11 @@
         });
       });
 
-      conn.on('data', async (data) => {
-        await handleIncomingData(data);
-      });
-
       conn.on('close', () => {
-        if (activeConnection === conn) activeConnection = null;
-        document.getElementById('connectionStatusText').textContent = 'Waiting for peer...';
-        document.getElementById('activeUserCount').textContent = 'Offline';
+        if (activeConnection === conn) {
+          activeConnection = null;
+          document.getElementById('connectionStatusText').textContent = 'Waiting for ' + targetAlias + '...';
+        }
       });
 
       conn.on('error', () => {
@@ -1865,8 +1872,7 @@
 
       switch (data.type) {
         case 'handshake':
-          document.getElementById('connectionStatusText').textContent = 'Online';
-          document.getElementById('activeUserCount').textContent = 'Encrypted P2P';
+          document.getElementById('connectionStatusText').textContent = 'Online (Live P2P)';
           break;
 
         case 'chat-msg':
