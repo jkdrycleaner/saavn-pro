@@ -56,10 +56,10 @@
       font-size: 15px;
     }
 
-    input, textarea, button {
+    input, select, textarea, button {
       font-family: inherit;
       user-select: auto;
-      font-size: 16px; /* Prevents auto-zoom on iOS & Android */
+      font-size: 16px; /* Prevents auto-zoom on mobile */
     }
 
     /* Screen Transitions & Overlays */
@@ -441,7 +441,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.88);
       backdrop-filter: blur(8px);
       z-index: 100;
       display: flex;
@@ -454,7 +454,7 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       width: 100%;
-      max-width: 360px;
+      max-width: 350px;
       border-radius: 16px;
       padding: 22px 18px;
       box-shadow: 0 10px 40px rgba(0,0,0,0.9);
@@ -513,6 +513,15 @@
 
     .form-control:focus {
       border-color: var(--accent);
+    }
+
+    select.form-control {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232BC5B4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px;
     }
 
     .btn-primary {
@@ -1109,17 +1118,20 @@
         Encrypted P2P Space
       </div>
       <h3 class="auth-title">Private Space</h3>
-      <p class="auth-desc">End-to-End encrypted WebRTC mesh. No server logs, zero cloud backups, 24h auto-clean.</p>
+      <p class="auth-desc">End-to-End encrypted WebRTC mesh. Select your identity and confirm room key.</p>
 
       <form id="joinCircleForm" onsubmit="return false;">
         <div class="form-group">
-          <label class="form-label" for="userNameInput">Your Alias</label>
-          <input type="text" id="userNameInput" class="form-control" placeholder="e.g., Alex" required maxlength="16">
+          <label class="form-label" for="userNameSelect">Who are you?</label>
+          <select id="userNameSelect" class="form-control" required>
+            <option value="71339">71339</option>
+            <option value="83770">83770</option>
+          </select>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="roomCodeInput">Secret Room Code</label>
-          <input type="text" id="roomCodeInput" class="form-control" placeholder="e.g., JAADU" required maxlength="16" style="text-transform: uppercase;">
+          <label class="form-label" for="roomCodeInput">Secret Room Key</label>
+          <input type="password" id="roomCodeInput" class="form-control" placeholder="Enter Room Key" required maxlength="20" autocomplete="off">
         </div>
 
         <button type="submit" id="btnJoinRoom" class="btn-primary">
@@ -1138,13 +1150,13 @@
     <!-- Header -->
     <header class="chat-header">
       <div class="chat-left-info">
-        <div class="room-avatar" id="roomAvatarText">J</div>
+        <div class="room-avatar" id="roomAvatarText">S</div>
         <div class="room-name-meta">
-          <div class="room-name-title" id="headerRoomTitle">JAADU</div>
+          <div class="room-name-title" id="headerRoomTitle">Private Circle</div>
           <div class="room-sub-meta">
-            <span id="connectionStatusText">Encrypted</span>
+            <span id="connectionStatusText">Connecting...</span>
             <span>•</span>
-            <span id="activeUserCount">1 online</span>
+            <span id="activeUserCount">Offline</span>
           </div>
         </div>
       </div>
@@ -1177,7 +1189,7 @@
     <!-- Message Stream -->
     <div class="chat-messages-container" id="chatMessages">
       <div class="encryption-notice">
-        🔒 Messages & calls are end-to-end encrypted (AES-GCM). No backup is stored on any server. Messages automatically self-destruct after 24 hours. Tap the music note above for instant stealth panic lock.
+        🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct after 24h. Tap the music note above for instant panic lock.
       </div>
     </div>
 
@@ -1205,7 +1217,7 @@
       <div class="call-status-pill">
         <span id="callStateLabel">Connecting Call...</span>
       </div>
-      <div class="call-peer-name" id="callTargetName">Alex</div>
+      <div class="call-peer-name" id="callTargetName">Peer</div>
       <div class="call-timer" id="callDurationTimer">00:00</div>
     </div>
 
@@ -1215,7 +1227,7 @@
     </div>
 
     <div class="audio-avatar-stage" id="audioStage">
-      <div class="audio-pulsing-avatar" id="callAvatarInitial">A</div>
+      <div class="audio-pulsing-avatar" id="callAvatarInitial">P</div>
     </div>
 
     <div class="call-bottom-controls">
@@ -1269,7 +1281,7 @@
       <div class="room-avatar" id="toastAvatarInitial">P</div>
       <div>
         <div style="font-weight: 600; font-size: 0.9rem;" id="toastCallerName">Peer</div>
-        <div style="font-size: 0.72rem; color: #8696a0;" id="toastCallType">Incoming Video Call...</div>
+        <div style="font-size: 0.72rem; color: #8696a0;" id="toastCallType">Incoming Call...</div>
       </div>
     </div>
     <div class="toast-actions">
@@ -1290,19 +1302,20 @@
   <div id="snackbar" class="app-snackbar"></div>
 
   <!-- ============================================================== -->
-  <!-- APPLICATION SCRIPTS (AES-GCM CRYPTO, WEBRTC & STEALTH)        -->
+  <!-- APPLICATION SCRIPTS (FIXED PEERS, EXACT ROOM & CRYPTO)        -->
   <!-- ============================================================== -->
   <script>
-    /* =======================================================
-       1. SECURITY: ZERO CLOUD BACKUP & NO PUSH NOTIFICATIONS
-       - Web Notification API is disabled/blocked explicitly.
-       - No messages are saved to localStorage / IndexedDB.
-       - Ephemeral Session-Only (auto-cleans on close/panic).
-       - Max 24 hours retention in memory before auto-destruction.
-    ======================================================= */
-    // Explicitly block OS push notifications so privacy is guaranteed
+    /* Fixed Confidential Configurations */
+    const FIXED_ROOM_CODE = "9873396476";
+    const SECRET_PIN = "9873396476";
+    const TAP_UNLOCK_THRESHOLD = 9;
+
+    const PEER_PREFIX = "saavn-fixed-";
+    const PEER_A = "71339";
+    const PEER_B = "83770";
+
+    // Disable OS Push Notifications for stealth
     if (window.Notification) {
-      // Never ask or trigger OS notifications
       window.Notification.requestPermission = () => Promise.resolve('denied');
     }
 
@@ -1350,7 +1363,7 @@
     }
 
     async function decryptPayload(payload) {
-      if (!payload.isEncrypted || !roomCryptoKey) return payload.ciphertext;
+      if (!payload || !payload.isEncrypted || !roomCryptoKey) return payload ? payload.ciphertext : '';
       try {
         const decrypted = await crypto.subtle.decrypt(
           { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
@@ -1363,18 +1376,14 @@
       }
     }
 
-    /* ==========================================
-       PWA SERVICE WORKER REGISTRATION
-    ========================================== */
+    /* Service Worker */
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(() => {});
       });
     }
 
-    /* ==========================================
-       MUSIC PLAYER & AUDIO SYNTHESIZER ENGINE
-    ========================================== */
+    /* Ambient Audio Synthesizer */
     const PLAYLIST = [
       { id: 1, title: 'Midnight Serenade', artist: 'Komorebi Lofi', duration: 165, type: 'lofi-chord' },
       { id: 2, title: 'Tokyo Rain Walk', artist: 'Aethelgard Ambient', duration: 192, type: 'rain-pad' },
@@ -1395,9 +1404,7 @@
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContextClass();
       }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       return audioCtx;
     }
 
@@ -1427,9 +1434,7 @@
           const bufferSize = ctx.sampleRate * 2;
           const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
           const output = noiseBuffer.getChannelData(0);
-          for (let i = 0; i < bufferSize; i++) {
-            output[i] = Math.random() * 2 - 1;
-          }
+          for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
           const whiteNoise = ctx.createBufferSource();
           whiteNoise.buffer = noiseBuffer;
           whiteNoise.loop = true;
@@ -1568,9 +1573,8 @@
     updatePlayerUI();
 
     /* ==============================================================
-       STEALTH PIN & LOGO TAP UNLOCK
+       STEALTH PIN & 9-TAP LOGO UNLOCK
     ============================================================== */
-    const SECRET_PIN = "7860";
     let tapCount = 0;
     let tapTimer = null;
 
@@ -1578,15 +1582,14 @@
       const bar = document.getElementById('snackbar');
       bar.textContent = msg;
       bar.classList.add('show');
-      setTimeout(() => {
-        bar.classList.remove('show');
-      }, 2000);
+      setTimeout(() => { bar.classList.remove('show'); }, 2200);
     }
 
     function unlockSecretCircle() {
       document.getElementById('musicSearchInput').value = '';
       document.getElementById('authModal').classList.remove('hidden');
-      document.getElementById('userNameInput').focus();
+      document.getElementById('roomCodeInput').value = '';
+      document.getElementById('roomCodeInput').focus();
     }
 
     function checkSearchPin() {
@@ -1594,7 +1597,7 @@
       if (val === SECRET_PIN) {
         unlockSecretCircle();
       } else if (val !== '') {
-        showToast(`No results for "${val}"`);
+        showToast(`No matches found for "${val}"`);
       }
     }
 
@@ -1606,18 +1609,19 @@
     });
     document.getElementById('searchEnterBtn').addEventListener('click', checkSearchPin);
 
+    // 9 Times Tap on Logo
     document.getElementById('brandLogoBtn').addEventListener('click', () => {
       tapCount++;
       clearTimeout(tapTimer);
-      if (tapCount >= 5) {
+      if (tapCount >= TAP_UNLOCK_THRESHOLD) {
         tapCount = 0;
         unlockSecretCircle();
       } else {
-        tapTimer = setTimeout(() => { tapCount = 0; }, 1800);
+        tapTimer = setTimeout(() => { tapCount = 0; }, 2200);
       }
     });
 
-    /* Panic Button: Instant Escape & Clear Ephemeral Cache */
+    /* Panic Button: Instant Escape */
     function triggerPanicLock() {
       if (activeCall) endActiveCall();
       document.getElementById('callOverlay').classList.add('hidden');
@@ -1641,57 +1645,61 @@
     });
 
     /* ==============================================================
-       P2P CHAT ENGINE (NO BACKUP + 24H AUTO DELETE)
+       DIRECT P2P 1-ON-1 PAIRING ENGINE (71339 <-> 83770)
     ============================================================== */
-    let currentAlias = '';
-    let currentRoomCode = '';
-    let myPeer = null;
+    let myAlias = '';
+    let targetAlias = '';
     let myPeerId = '';
-    let activeConnections = new Map();
+    let targetPeerId = '';
+    let myPeer = null;
+    let activeConnection = null;
     let broadcastChan = null;
+    let reconnectInterval = null;
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-    // Join Circle
     document.getElementById('joinCircleForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const alias = document.getElementById('userNameInput').value.trim();
-      let room = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+      const enteredCode = document.getElementById('roomCodeInput').value.trim();
+      const selectedName = document.getElementById('userNameSelect').value;
 
-      if (!alias || !room) return;
-      currentAlias = alias;
-      currentRoomCode = room;
+      // STRICT VALIDATION: Room code must be 9873396476
+      if (enteredCode !== FIXED_ROOM_CODE) {
+        showToast('Invalid Room Key!');
+        document.getElementById('roomCodeInput').value = '';
+        return;
+      }
 
-      // Derive AES-GCM 256-bit Key from Room Code
-      roomCryptoKey = await deriveRoomKey(room);
+      myAlias = selectedName;
+      targetAlias = (myAlias === PEER_A) ? PEER_B : PEER_A;
+
+      myPeerId = PEER_PREFIX + myAlias;
+      targetPeerId = PEER_PREFIX + targetAlias;
+
+      // Derive 256-bit AES-GCM Key
+      roomCryptoKey = await deriveRoomKey(FIXED_ROOM_CODE);
 
       document.getElementById('authModal').classList.add('hidden');
       document.getElementById('music-screen').classList.add('hidden');
       document.getElementById('chat-screen').classList.remove('hidden');
 
-      document.getElementById('headerRoomTitle').textContent = currentRoomCode;
-      document.getElementById('roomAvatarText').textContent = currentRoomCode.charAt(0);
-      document.getElementById('connectionStatusText').textContent = 'Encrypted • P2P';
+      document.getElementById('headerRoomTitle').textContent = targetAlias;
+      document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
+      document.getElementById('connectionStatusText').textContent = 'Connecting...';
 
-      initRoomConnection(alias, room);
+      initDirectP2P();
     });
 
-    function cleanPeerPrefix(room) {
-      return 'saavn-' + room.toLowerCase().replace(/[^a-z0-9]/g, '');
-    }
-
-    function initRoomConnection(alias, room) {
-      const prefix = cleanPeerPrefix(room);
-      const randomSuffix = Math.random().toString(36).substring(2, 7);
-      myPeerId = `${prefix}-${randomSuffix}`;
-
+    function initDirectP2P() {
+      // 1. BroadcastChannel (Instant multi-tab / same browser testing fallback)
       try {
         if (broadcastChan) broadcastChan.close();
-        broadcastChan = new BroadcastChannel(`saavn-room-${room}`);
+        broadcastChan = new BroadcastChannel(`saavn-direct-${FIXED_ROOM_CODE}`);
         broadcastChan.onmessage = async (event) => {
           await handleIncomingData(event.data);
         };
       } catch (err) {}
 
+      // 2. PeerJS Direct Point-to-Point
       try {
         if (myPeer) myPeer.destroy();
       } catch(e) {}
@@ -1701,19 +1709,17 @@
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' }
           ]
         }
       });
 
-      myPeer.on('open', () => {
-        document.getElementById('connectionStatusText').textContent = 'Encrypted • Mesh';
-        broadcastSignal({
-          type: 'presence-join',
-          senderAlias: currentAlias,
-          senderPeerId: myPeerId,
-          timestamp: Date.now()
-        });
+      myPeer.on('open', (id) => {
+        document.getElementById('connectionStatusText').textContent = 'Ready • Encrypted';
+        // Connect directly to the fixed target peer
+        attemptConnectToTarget();
       });
 
       myPeer.on('connection', (conn) => {
@@ -1724,24 +1730,40 @@
         handleIncomingCall(mediaCall);
       });
 
-      setInterval(() => {
-        if (myPeer && !myPeer.destroyed) {
-          broadcastSignal({
-            type: 'presence-ping',
-            senderAlias: currentAlias,
-            senderPeerId: myPeerId
-          });
+      myPeer.on('error', (err) => {
+        // Expected when target peer is not online yet
+        console.log('Peer note:', err.type);
+      });
+
+      // Keep alive / Auto-reconnect poll every 3 seconds until connected
+      clearInterval(reconnectInterval);
+      reconnectInterval = setInterval(() => {
+        if (!activeConnection || !activeConnection.open) {
+          attemptConnectToTarget();
         }
-      }, 4000);
+      }, 3500);
+    }
+
+    function attemptConnectToTarget() {
+      if (!myPeer || myPeer.destroyed) return;
+      if (activeConnection && activeConnection.open) return;
+
+      try {
+        const conn = myPeer.connect(targetPeerId, { reliable: true });
+        setupDataConnection(conn);
+      } catch(e) {}
     }
 
     function setupDataConnection(conn) {
       conn.on('open', () => {
-        activeConnections.set(conn.peer, conn);
-        updateUserCount();
+        activeConnection = conn;
+        document.getElementById('connectionStatusText').textContent = 'Online';
+        document.getElementById('activeUserCount').textContent = 'Encrypted P2P';
+
+        // Greet peer
         conn.send({
           type: 'handshake',
-          senderAlias: currentAlias,
+          senderAlias: myAlias,
           senderPeerId: myPeerId
         });
       });
@@ -1751,43 +1773,32 @@
       });
 
       conn.on('close', () => {
-        activeConnections.delete(conn.peer);
-        updateUserCount();
+        if (activeConnection === conn) activeConnection = null;
+        document.getElementById('connectionStatusText').textContent = 'Waiting for peer...';
+        document.getElementById('activeUserCount').textContent = 'Offline';
       });
 
       conn.on('error', () => {
-        activeConnections.delete(conn.peer);
+        if (activeConnection === conn) activeConnection = null;
       });
-    }
-
-    function updateUserCount() {
-      const count = activeConnections.size + 1;
-      document.getElementById('activeUserCount').textContent = `${count} online`;
     }
 
     function broadcastSignal(payload) {
       if (broadcastChan) {
         try { broadcastChan.postMessage(payload); } catch(e) {}
       }
-      activeConnections.forEach(conn => {
-        if (conn.open) {
-          try { conn.send(payload); } catch(e) {}
-        }
-      });
+      if (activeConnection && activeConnection.open) {
+        try { activeConnection.send(payload); } catch(e) {}
+      }
     }
 
     async function handleIncomingData(data) {
       if (!data || !data.type || data.senderPeerId === myPeerId) return;
 
       switch (data.type) {
-        case 'presence-join':
-        case 'presence-ping':
-          if (data.senderPeerId && !activeConnections.has(data.senderPeerId) && data.senderPeerId !== myPeerId) {
-            if (myPeer && !myPeer.destroyed) {
-              const conn = myPeer.connect(data.senderPeerId);
-              setupDataConnection(conn);
-            }
-          }
+        case 'handshake':
+          document.getElementById('connectionStatusText').textContent = 'Online';
+          document.getElementById('activeUserCount').textContent = 'Encrypted P2P';
           break;
 
         case 'chat-msg':
@@ -1800,7 +1811,7 @@
           break;
 
         case 'call-request':
-          showIncomingCallModal(data.senderAlias, data.callType, data.senderPeerId);
+          showIncomingCallModal(data.senderAlias, data.callType);
           break;
 
         case 'call-declined':
@@ -1815,7 +1826,6 @@
       const msgTime = timestamp || Date.now();
       const age = Date.now() - msgTime;
 
-      // Auto discard if already older than 24 hours
       if (age >= ONE_DAY_MS) return;
 
       const container = document.getElementById('chatMessages');
@@ -1838,7 +1848,7 @@
       container.appendChild(row);
       container.scrollTop = container.scrollHeight;
 
-      // Strict Auto-Delete: Expire exactly after 24 hours (or remaining time)
+      // 24 Hour Auto-Delete in memory
       const remainingLifetime = Math.max(1000, ONE_DAY_MS - age);
       setTimeout(() => {
         row.remove();
@@ -1856,19 +1866,18 @@
       const text = input.value.trim();
       if (!text) return;
 
-      // Encrypt message client-side with AES-GCM
       const encryptedPayload = await encryptPayload(text);
 
       const packet = {
         type: 'chat-msg',
-        senderAlias: currentAlias,
+        senderAlias: myAlias,
         senderPeerId: myPeerId,
         payload: encryptedPayload,
         timestamp: Date.now()
       };
 
       broadcastSignal(packet);
-      appendChatMessage(currentAlias, text, true, packet.timestamp);
+      appendChatMessage(myAlias, text, true, packet.timestamp);
       input.value = '';
     }
 
@@ -1880,7 +1889,7 @@
       } else {
         broadcastSignal({
           type: 'typing',
-          senderAlias: currentAlias,
+          senderAlias: myAlias,
           senderPeerId: myPeerId
         });
       }
@@ -1920,6 +1929,7 @@
         });
         return localStream;
       } catch (err) {
+        showToast('Microphone/Camera permission required');
         return null;
       }
     }
@@ -1928,18 +1938,16 @@
       const stream = await getMediaStream(isVideo);
       if (!stream) return;
 
-      openCallOverlay(isVideo, 'Calling Circle...');
+      openCallOverlay(isVideo, 'Calling ' + targetAlias + '...', targetAlias);
 
-      const targetPeers = Array.from(activeConnections.keys());
-      if (targetPeers.length > 0) {
-        const peerId = targetPeers[0];
-        const call = myPeer.call(peerId, stream);
+      if (myPeer && !myPeer.destroyed) {
+        const call = myPeer.call(targetPeerId, stream);
         handleCallLifecycle(call, isVideo);
       }
 
       broadcastSignal({
         type: 'call-request',
-        senderAlias: currentAlias,
+        senderAlias: myAlias,
         senderPeerId: myPeerId,
         callType: isVideo ? 'video' : 'audio'
       });
@@ -1952,7 +1960,7 @@
       document.getElementById('incomingCallToast').classList.add('hidden');
       document.getElementById('callOverlay').classList.remove('hidden');
       document.getElementById('callStateLabel').textContent = statusText;
-      const displayName = targetName || currentRoomCode;
+      const displayName = targetName || targetAlias;
       document.getElementById('callTargetName').textContent = displayName;
       document.getElementById('callAvatarInitial').textContent = displayName.charAt(0).toUpperCase();
 
@@ -1998,18 +2006,18 @@
 
     function handleIncomingCall(mediaCall) {
       pendingIncomingCall = mediaCall;
-      showIncomingCallModal('Peer', 'audio', mediaCall.peer);
+      showIncomingCallModal(targetAlias, 'Call');
     }
 
     function showIncomingCallModal(callerName, callType) {
       document.getElementById('toastCallerName').textContent = callerName;
-      document.getElementById('toastCallType').textContent = `Incoming ${callType} call...`;
+      document.getElementById('toastCallType').textContent = `Incoming ${callType}...`;
       document.getElementById('toastAvatarInitial').textContent = callerName.charAt(0).toUpperCase();
       document.getElementById('incomingCallToast').classList.remove('hidden');
 
       document.getElementById('toastAcceptBtn').onclick = async () => {
         document.getElementById('incomingCallToast').classList.add('hidden');
-        const isVideo = callType === 'video';
+        const isVideo = callType.toLowerCase().includes('video');
         const stream = await getMediaStream(isVideo);
         if (!stream) return;
 
@@ -2024,7 +2032,7 @@
         document.getElementById('incomingCallToast').classList.add('hidden');
         broadcastSignal({
           type: 'call-declined',
-          senderAlias: currentAlias,
+          senderAlias: myAlias,
           senderPeerId: myPeerId
         });
         if (pendingIncomingCall) {
@@ -2058,7 +2066,7 @@
       }
       broadcastSignal({
         type: 'call-ended',
-        senderAlias: currentAlias,
+        senderAlias: myAlias,
         senderPeerId: myPeerId
       });
 
