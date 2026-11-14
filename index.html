@@ -80,6 +80,9 @@
       transform: rotate(180deg) scale(0.9);
       color: var(--accent);
     }
+
+    /* Screen Transitions & Overlays */
+    .screen {
       position: absolute;
       top: 0;
       left: 0;
@@ -92,9 +95,10 @@
       z-index: 10;
     }
 
-    .hidden {
+    .hidden, #callOverlay.hidden, #incomingCallToast.hidden, #authModal.hidden, #chat-screen.hidden {
       display: none !important;
       opacity: 0 !important;
+      visibility: hidden !important;
       pointer-events: none !important;
     }
 
@@ -1246,7 +1250,7 @@
   <!-- ============================================================== -->
   <!-- 4. P2P AUDIO / VIDEO CALL SCREEN                               -->
   <!-- ============================================================== -->
-  <div id="callOverlay" class="call-overlay hidden">
+  <div id="callOverlay" class="call-overlay hidden" style="display: none !important;">
     <div class="call-top-bar">
       <div class="call-status-pill">
         <span id="callStateLabel">Connecting Call...</span>
@@ -1310,7 +1314,7 @@
   </div>
 
   <!-- In-App Silent Call Alert (No OS/System Notification) -->
-  <div id="incomingCallToast" class="incoming-call-toast hidden">
+  <div id="incomingCallToast" class="incoming-call-toast hidden" style="display: none !important;">
     <div class="toast-peer-info">
       <div class="room-avatar" id="toastAvatarInitial">P</div>
       <div>
@@ -2022,7 +2026,12 @@
 
     function openCallOverlay(isVideo, statusText, targetName = null) {
       document.getElementById('incomingCallToast').classList.add('hidden');
-      document.getElementById('callOverlay').classList.remove('hidden');
+      document.getElementById('incomingCallToast').style.display = 'none';
+
+      const overlay = document.getElementById('callOverlay');
+      overlay.classList.remove('hidden');
+      overlay.style.display = 'flex';
+
       document.getElementById('callStateLabel').textContent = statusText;
       const displayName = targetName || targetAlias;
       document.getElementById('callTargetName').textContent = displayName;
@@ -2077,10 +2086,15 @@
       document.getElementById('toastCallerName').textContent = callerName;
       document.getElementById('toastCallType').textContent = `Incoming ${callType}...`;
       document.getElementById('toastAvatarInitial').textContent = callerName.charAt(0).toUpperCase();
-      document.getElementById('incomingCallToast').classList.remove('hidden');
+      
+      const toast = document.getElementById('incomingCallToast');
+      toast.classList.remove('hidden');
+      toast.style.display = 'flex';
 
       document.getElementById('toastAcceptBtn').onclick = async () => {
-        document.getElementById('incomingCallToast').classList.add('hidden');
+        toast.classList.add('hidden');
+        toast.style.display = 'none';
+
         const isVideo = callType.toLowerCase().includes('video');
         const stream = await getMediaStream(isVideo);
         if (!stream) return;
@@ -2093,7 +2107,9 @@
       };
 
       document.getElementById('toastDeclineBtn').onclick = () => {
-        document.getElementById('incomingCallToast').classList.add('hidden');
+        toast.classList.add('hidden');
+        toast.style.display = 'none';
+
         broadcastSignal({
           type: 'call-declined',
           senderAlias: myAlias,
@@ -2134,7 +2150,10 @@
         senderPeerId: myPeerId
       });
 
-      document.getElementById('callOverlay').classList.add('hidden');
+      const overlay = document.getElementById('callOverlay');
+      overlay.classList.add('hidden');
+      overlay.style.display = 'none';
+
       document.getElementById('remoteVideo').srcObject = null;
       document.getElementById('localVideo').srcObject = null;
     }
