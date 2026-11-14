@@ -1132,6 +1132,56 @@
 
     .app-snackbar.show { opacity: 1; }
 
+    /* =================================================== */
+    /* 5. PRIVACY PROTECTION OVERLAY (RECENT APPS HIDE)     */
+    /* =================================================== */
+    .privacy-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      background-color: #121212;
+      z-index: 999999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease-in;
+    }
+
+    .privacy-overlay.active {
+      opacity: 1 !important;
+      pointer-events: all !important;
+    }
+
+    .privacy-icon-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .privacy-icon-svg {
+      width: 84px;
+      height: 84px;
+    }
+
+    .privacy-brand-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: 0.5px;
+    }
+
+    .privacy-brand-name span {
+      color: #2BC5B4;
+    }
+
     @keyframes fadeInReply {
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
@@ -1495,6 +1545,23 @@
   </div>
 
   <div id="snackbar" class="app-snackbar"></div>
+
+  <!-- ============================================================== -->
+  <!-- 5. GLOBAL PRIVACY PROTECTION OVERLAY (RECENT APPS / MINIMIZE) -->
+  <!-- ============================================================== -->
+  <div id="globalPrivacyOverlay" class="privacy-overlay" aria-hidden="true">
+    <div class="privacy-icon-wrap">
+      <svg class="privacy-icon-svg" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="17" fill="#181818" stroke="#2BC5B4" stroke-width="1.8"/>
+        <line x1="9" y1="18" x2="9" y2="18" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="13.5" y1="13" x2="13.5" y2="23" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="18" y1="9" x2="18" y2="27" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <div class="privacy-brand-name">Saavn <span>PRO</span></div>
+    </div>
+  </div>
 
   <!-- ============================================================== -->
   <!-- APPLICATION SCRIPTS (FIXED PEERS, EXACT ROOM & CRYPTO)        -->
@@ -1899,11 +1966,58 @@
       document.getElementById('authModal').classList.add('hidden');
     });
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        const isChatOpen = !document.getElementById('chat-screen').classList.contains('hidden');
-        if (isChatOpen) triggerPanicLock();
+    /* ==============================================================
+       GLOBAL PRIVACY PROTECTION (RECENT APPS / MINIMIZE HIDE)
+    ============================================================== */
+    const privacyOverlay = document.getElementById('globalPrivacyOverlay');
+    let isPrivacyActive = false;
+
+    function activatePrivacyOverlay() {
+      if (!isPrivacyActive && privacyOverlay) {
+        privacyOverlay.classList.add('active');
+        privacyOverlay.setAttribute('aria-hidden', 'false');
+        isPrivacyActive = true;
       }
+    }
+
+    function deactivatePrivacyOverlay() {
+      if (isPrivacyActive && privacyOverlay) {
+        // Small transition buffer to prevent flicker
+        setTimeout(() => {
+          privacyOverlay.classList.remove('active');
+          privacyOverlay.setAttribute('aria-hidden', 'true');
+          isPrivacyActive = false;
+        }, 120);
+      }
+    }
+
+    // 1. Page Visibility API
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' || document.hidden) {
+        activatePrivacyOverlay();
+      } else if (document.visibilityState === 'visible') {
+        deactivatePrivacyOverlay();
+      }
+    });
+
+    // 2. Window Blur (immediate trigger when Recent Apps carousel starts opening)
+    window.addEventListener('blur', () => {
+      activatePrivacyOverlay();
+    });
+
+    // 3. Window Focus (restore when user returns)
+    window.addEventListener('focus', () => {
+      deactivatePrivacyOverlay();
+    });
+
+    // 4. Pagehide (switching apps / navigating away)
+    window.addEventListener('pagehide', () => {
+      activatePrivacyOverlay();
+    });
+
+    // 5. Pageshow (bfcache restore)
+    window.addEventListener('pageshow', () => {
+      deactivatePrivacyOverlay();
     });
 
     /* ==============================================================
