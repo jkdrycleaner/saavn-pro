@@ -62,8 +62,24 @@
       font-size: 16px; /* Prevents auto-zoom on mobile */
     }
 
-    /* Screen Transitions & Overlays */
-    .screen {
+    /* Auto Refresh / Sync Indicator Pill */
+    .hard-refresh-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 50%;
+      transition: transform 0.3s ease, color 0.2s;
+    }
+
+    .hard-refresh-btn:active {
+      transform: rotate(180deg) scale(0.9);
+      color: var(--accent);
+    }
       position: absolute;
       top: 0;
       left: 0;
@@ -1029,6 +1045,15 @@
           </svg>
         </button>
       </div>
+
+      <!-- Small Hard Refresh Button on Music Screen -->
+      <button id="musicHardRefreshBtn" class="hard-refresh-btn" title="Hard Refresh & Clear Cache">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
     </header>
 
     <div class="music-scroll-body">
@@ -1162,6 +1187,15 @@
       </div>
 
       <div class="chat-header-actions">
+        <!-- Small Hard Refresh Button in Chat -->
+        <button id="chatHardRefreshBtn" class="icon-action-btn" title="Refresh Connection">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+
         <!-- Voice Call -->
         <button id="startAudioCallBtn" class="icon-action-btn" title="Voice Call">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1376,10 +1410,40 @@
       }
     }
 
-    /* Service Worker */
+    /* =======================================================
+       AUTO HARD REFRESH & CACHE PURGE SYSTEM
+       - Clears stale Service Worker caches on load
+       - Auto re-syncs URL without stale cache
+    ======================================================= */
+    async function performHardRefresh() {
+      showToast('Refreshing app & clearing cache...');
+      if ('caches' in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        } catch (e) {}
+      }
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let reg of registrations) {
+            await reg.unregister();
+          }
+        } catch (e) {}
+      }
+      // Force reload with cache bypass
+      window.location.reload(true);
+    }
+
+    document.getElementById('musicHardRefreshBtn').addEventListener('click', performHardRefresh);
+    document.getElementById('chatHardRefreshBtn').addEventListener('click', performHardRefresh);
+
+    /* Service Worker registration with Network-First handling */
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
+        navigator.serviceWorker.register('sw.js?v=' + Date.now()).then(reg => {
+          reg.update(); // Always check for latest file on server
+        }).catch(() => {});
       });
     }
 

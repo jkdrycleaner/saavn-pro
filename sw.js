@@ -1,41 +1,26 @@
-const CACHE_NAME = 'saavn-pro-cache-v1';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
-  './sw.js',
-  './icon-192.png',
-  './icon-512.png'
-];
+// Network-first Service Worker so updates always fetch latest code immediately
+const CACHE_NAME = 'saavn-pro-cache-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
-    })
-  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
+      return Promise.all(keys.map((key) => caches.delete(key)));
     })
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass-through for WebRTC signaling or external CDN scripts
-  if (event.request.url.includes('peerjs') || event.request.url.includes('unpkg') || event.request.url.includes('cdnjs')) {
-    return;
-  }
+  // Always fetch latest code from network, fallback to cache only when offline
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      return cachedResponse || fetch(event.request).catch(() => cachedResponse);
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        return networkResponse;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
