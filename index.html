@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v14</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v15</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1439,7 +1439,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v14</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v15</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -2174,6 +2174,29 @@
         clearInterval(peerPresenceInterval);
         peerPresenceInterval = null;
       }
+
+      // Reset active user session & crypto state
+      myAlias = '';
+      targetAlias = '';
+      myPeerId = '';
+      targetPeerId = '';
+      roomCryptoKey = null;
+      activeReply = null;
+      secretPatternSteps = [];
+      clearTimeout(patternResetTimer);
+
+      // Clear DOM messages & dedupe cache to prevent stale screen overlap
+      renderedMsgMap.clear();
+      pendingOutgoingMsgs.clear();
+      const chatContainer = document.getElementById('chatMessages');
+      if (chatContainer) {
+        chatContainer.innerHTML = `
+          <div class="encryption-notice">
+            🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct tonight at 11:59 PM. Tap the music note above for instant panic lock.
+          </div>
+        `;
+      }
+
       document.getElementById('callOverlay').classList.add('hidden');
       document.getElementById('incomingCallToast').classList.add('hidden');
       document.getElementById('authModal').classList.add('hidden');
@@ -2280,6 +2303,26 @@
 
     async function autoLoginDirect(enteredId) {
       if (enteredId !== PEER_A && enteredId !== PEER_B) return;
+
+      // Reset previous session state completely
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (peerPresenceInterval) {
+        clearInterval(peerPresenceInterval);
+        peerPresenceInterval = null;
+      }
+      renderedMsgMap.clear();
+      pendingOutgoingMsgs.clear();
+      const chatContainer = document.getElementById('chatMessages');
+      if (chatContainer) {
+        chatContainer.innerHTML = `
+          <div class="encryption-notice">
+            🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct tonight at 11:59 PM. Tap the music note above for instant panic lock.
+          </div>
+        `;
+      }
 
       myAlias = enteredId;
       targetAlias = (myAlias === PEER_A) ? PEER_B : PEER_A;
