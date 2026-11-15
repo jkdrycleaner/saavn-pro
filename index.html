@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v11</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v12</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1304,7 +1304,16 @@
 
       <div class="section-title">
         <span>Trending Vibes</span>
-        <small id="shuffleBtn">Shuffle Play</small>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="localAudioInput" style="font-size: 0.75rem; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 4px; background: rgba(43, 197, 180, 0.12); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(43, 197, 180, 0.3);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            Add Songs
+          </label>
+          <input type="file" id="localAudioInput" accept="audio/*" multiple style="display: none;">
+          <small id="shuffleBtn">Shuffle Play</small>
+        </div>
       </div>
 
       <div class="playlist-grid" id="playlistContainer"></div>
@@ -1430,7 +1439,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v11</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v12</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -1739,13 +1748,13 @@
       });
     }
 
-    /* Ambient Audio Synthesizer */
-    const PLAYLIST = [
-      { id: 1, title: 'Midnight Serenade', artist: 'Komorebi Lofi', duration: 165, type: 'lofi-chord' },
-      { id: 2, title: 'Tokyo Rain Walk', artist: 'Aethelgard Ambient', duration: 192, type: 'rain-pad' },
-      { id: 3, title: 'Deep Space Reverie', artist: 'Nebula Sounds', duration: 210, type: 'synth-drone' },
-      { id: 4, title: 'Cafe Study Session', artist: 'Chilled Cow Studio', duration: 178, type: 'lofi-chord' },
-      { id: 5, title: 'Emerald Dreams', artist: 'Subtle Waveform', duration: 185, type: 'synth-drone' }
+    /* Ambient Audio Synthesizer & Local Audio Player Engine */
+    let PLAYLIST = [
+      { id: 1, title: 'Midnight Serenade', artist: 'Komorebi Lofi', duration: 165, type: 'lofi-chord', file: null, audioUrl: null },
+      { id: 2, title: 'Tokyo Rain Walk', artist: 'Aethelgard Ambient', duration: 192, type: 'rain-pad', file: null, audioUrl: null },
+      { id: 3, title: 'Deep Space Reverie', artist: 'Nebula Sounds', duration: 210, type: 'synth-drone', file: null, audioUrl: null },
+      { id: 4, title: 'Cafe Study Session', artist: 'Chilled Cow Studio', duration: 178, type: 'lofi-chord', file: null, audioUrl: null },
+      { id: 5, title: 'Emerald Dreams', artist: 'Subtle Waveform', duration: 185, type: 'synth-drone', file: null, audioUrl: null }
     ];
 
     let currentTrackIdx = 0;
@@ -1754,6 +1763,52 @@
     let musicTimer = null;
     let audioCtx = null;
     let activeSynthNodes = [];
+    const localAudioElement = new Audio();
+
+    localAudioElement.addEventListener('timeupdate', () => {
+      if (!localAudioElement.duration) return;
+      trackElapsed = Math.floor(localAudioElement.currentTime);
+      updatePlayerUI();
+    });
+
+    localAudioElement.addEventListener('ended', () => {
+      nextTrack();
+    });
+
+    localAudioElement.addEventListener('loadedmetadata', () => {
+      if (PLAYLIST[currentTrackIdx] && localAudioElement.duration) {
+        PLAYLIST[currentTrackIdx].duration = Math.floor(localAudioElement.duration);
+        updatePlayerUI();
+      }
+    });
+
+    // Local file selector handler
+    document.getElementById('localAudioInput').addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      files.forEach((file) => {
+        const objectUrl = URL.createObjectURL(file);
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        const newTrack = {
+          id: Date.now() + Math.random(),
+          title: nameWithoutExt,
+          artist: 'Device Audio',
+          duration: 180, // Updated when loadedmetadata fires
+          type: 'local-file',
+          file: file,
+          audioUrl: objectUrl
+        };
+        PLAYLIST.unshift(newTrack);
+      });
+
+      showToast(`Added ${files.length} song(s) from phone`);
+      currentTrackIdx = 0;
+      trackElapsed = 0;
+      renderPlaylist();
+      playMusic();
+      e.target.value = '';
+    });
 
     function getAudioContext() {
       if (!audioCtx) {
@@ -1875,21 +1930,40 @@
 
     function playMusic() {
       isPlaying = true;
-      startSynthesizedAudio(PLAYLIST[currentTrackIdx].type);
-      updatePlayerUI();
-      clearInterval(musicTimer);
-      musicTimer = setInterval(() => {
-        trackElapsed += 1;
-        if (trackElapsed >= PLAYLIST[currentTrackIdx].duration) {
-          nextTrack();
-        } else {
-          updatePlayerUI();
+      const track = PLAYLIST[currentTrackIdx];
+
+      if (track.audioUrl) {
+        // Real local audio file selected by user
+        stopSynthesizedAudio();
+        clearInterval(musicTimer);
+        if (localAudioElement.src !== track.audioUrl) {
+          localAudioElement.src = track.audioUrl;
+          localAudioElement.currentTime = trackElapsed || 0;
         }
-      }, 1000);
+        localAudioElement.play().catch(e => {
+          console.warn('Playback error:', e);
+        });
+      } else {
+        // Built-in synthesized audio
+        try { localAudioElement.pause(); } catch(e) {}
+        startSynthesizedAudio(track.type);
+        clearInterval(musicTimer);
+        musicTimer = setInterval(() => {
+          trackElapsed += 1;
+          if (trackElapsed >= track.duration) {
+            nextTrack();
+          } else {
+            updatePlayerUI();
+          }
+        }, 1000);
+      }
+
+      updatePlayerUI();
     }
 
     function pauseMusic() {
       isPlaying = false;
+      try { localAudioElement.pause(); } catch(e) {}
       stopSynthesizedAudio();
       clearInterval(musicTimer);
       updatePlayerUI();
@@ -1898,13 +1972,21 @@
     function nextTrack() {
       trackElapsed = 0;
       currentTrackIdx = (currentTrackIdx + 1) % PLAYLIST.length;
-      if (isPlaying) playMusic(); else updatePlayerUI();
+      if (isPlaying) {
+        playMusic();
+      } else {
+        updatePlayerUI();
+      }
     }
 
     function prevTrack() {
       trackElapsed = 0;
       currentTrackIdx = (currentTrackIdx - 1 + PLAYLIST.length) % PLAYLIST.length;
-      if (isPlaying) playMusic(); else updatePlayerUI();
+      if (isPlaying) {
+        playMusic();
+      } else {
+        updatePlayerUI();
+      }
     }
 
     document.getElementById('playPauseBtn').addEventListener('click', () => {
@@ -1921,7 +2003,12 @@
       const rect = e.currentTarget.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const pct = Math.max(0, Math.min(1, clickX / rect.width));
-      trackElapsed = Math.floor(pct * PLAYLIST[currentTrackIdx].duration);
+      const targetTime = Math.floor(pct * PLAYLIST[currentTrackIdx].duration);
+      trackElapsed = targetTime;
+      const track = PLAYLIST[currentTrackIdx];
+      if (track && track.audioUrl) {
+        localAudioElement.currentTime = targetTime;
+      }
       updatePlayerUI();
     });
 
