@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v7</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v8</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1430,7 +1430,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v7</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v8</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -1477,7 +1477,7 @@
     <!-- Message Stream -->
     <div class="chat-messages-container" id="chatMessages">
       <div class="encryption-notice">
-        🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct after 24h. Tap the music note above for instant panic lock.
+        🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct tonight at 11:59 PM. Tap the music note above for instant panic lock.
       </div>
     </div>
 
@@ -2105,9 +2105,25 @@
     let broadcastChan = null;
     let eventSource = null;
     let activeReply = null; // { sender, text }
-    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
     const RELAY_TOPIC = `saavn_sec_${FIXED_ROOM_CODE}`;
     const RELAY_URL = `https://ntfy.sh/${RELAY_TOPIC}`;
+
+    // Calculate milliseconds remaining until 11:59:59 PM tonight (same day)
+    function getMsUntilMidnightTonight() {
+      const now = new Date();
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return Math.max(1000, endOfDay.getTime() - now.getTime());
+    }
+
+    // Check if timestamp belongs to today (same calendar date)
+    function isTimestampToday(ts) {
+      if (!ts) return false;
+      const msgDate = new Date(ts);
+      const today = new Date();
+      return msgDate.getFullYear() === today.getFullYear() &&
+             msgDate.getMonth() === today.getMonth() &&
+             msgDate.getDate() === today.getDate();
+    }
 
     document.getElementById('joinCircleForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -2163,10 +2179,10 @@
       document.getElementById('replyPreviewBar').classList.remove('active');
     }
 
-    /* Load history of past 24 hours so re-entering room preserves messages */
+    /* Load today's history up to 11:59 PM (Auto-wipes messages from yesterday) */
     async function loadRoomHistory() {
       try {
-        const res = await fetch(`${RELAY_URL}/json?poll=1&since=24h`);
+        const res = await fetch(`${RELAY_URL}/json?poll=1&since=all`);
         if (!res.ok) return;
         const textData = await res.text();
         const lines = textData.trim().split('\n');
@@ -2177,9 +2193,13 @@
             if (entry.event === 'message' && entry.message) {
               const parsed = JSON.parse(entry.message);
               if (parsed.type === 'chat-msg' && parsed.payload) {
+                // Strictly filter for today's messages only
+                const msgTimestamp = parsed.timestamp || (entry.time ? entry.time * 1000 : 0);
+                if (!isTimestampToday(msgTimestamp)) continue;
+
                 const plainText = await decryptPayload(parsed.payload);
                 const isSelf = (parsed.senderAlias === myAlias);
-                appendChatMessage(parsed.senderAlias, plainText, isSelf, parsed.timestamp, parsed.replyTo, false, parsed.msgId, 'delivered');
+                appendChatMessage(parsed.senderAlias, plainText, isSelf, msgTimestamp, parsed.replyTo, false, parsed.msgId, 'delivered');
               }
             }
           } catch(err) {}
@@ -2246,7 +2266,7 @@
           document.getElementById('connectionStatusText').style.color = '#e0a800';
         };
 
-        // Start heartbeat presence ping every 25 seconds
+        // Start heartbeat presence ping every 45 seconds to conserve rate limits
         if (peerPresenceInterval) clearInterval(peerPresenceInterval);
         peerPresenceInterval = setInterval(() => {
           if (eventSource && eventSource.readyState === EventSource.OPEN) {
@@ -2258,7 +2278,7 @@
             });
           }
           updatePeerPresenceStatus();
-        }, 20000);
+        }, 45000);
 
       } catch (err) {
         console.error('SSE Relay init error:', err);
@@ -2395,8 +2415,8 @@
         return;
       }
 
-      // Check if peer has sent presence or message within last 35 seconds
-      if (lastPeerHeartbeat > 0 && (Date.now() - lastPeerHeartbeat < 35000)) {
+      // Check if peer has sent presence or message within last 70 seconds
+      if (lastPeerHeartbeat > 0 && (Date.now() - lastPeerHeartbeat < 70000)) {
         statusEl.textContent = `${targetAlias} Online`;
         statusEl.style.color = '#00a884';
       } else {
@@ -2405,15 +2425,15 @@
       }
     }
 
-    /* Message Rendering with Deduplication, Status Tracking, Reply Quote, & 24h Lifetime */
+    /* Message Rendering with Deduplication, Status Tracking, Reply Quote, & Same-Day (11:59 PM) Lifetime */
     const renderedMsgMap = new Set();
     const pendingOutgoingMsgs = new Map(); // msgId -> { msgId, text, timestamp, replyTo, status, retryCount }
 
     function appendChatMessage(sender, text, isSelf, timestamp, replyTo, shouldScroll = true, msgId = null, initialStatus = 'sent') {
       const msgTime = timestamp || Date.now();
-      const age = Date.now() - msgTime;
 
-      if (age >= ONE_DAY_MS) return;
+      // Enforce Same-Day Condition: If message is not from today, do not render
+      if (!isTimestampToday(msgTime)) return;
 
       const effectiveMsgId = msgId || (isSelf ? `out-${msgTime}-${Math.random().toString(36).substr(2, 6)}` : `in-${msgTime}-${Math.random().toString(36).substr(2, 6)}`);
 
@@ -2448,7 +2468,7 @@
         } else if (initialStatus === 'delivered') {
           statusHtml = `<span class="wa-status-badge delivered" id="status-${effectiveMsgId}" title="Delivered to recipient">✓✓</span>`;
         } else if (initialStatus === 'failed') {
-          statusHtml = `<span class="wa-status-badge failed" id="status-${effectiveMsgId}" title="Failed to send">! <span class="msg-failed-action" onclick="retryFailedMessage('${effectiveMsgId}')">Retry</span></span>`;
+          statusHtml = `<span class="wa-status-badge failed" id="status-${effectiveMsgId}" title="Failed to send">! <span class="msg-failed-action" onclick="retryFailedMessage('${effectiveMsgId}', event)">Retry</span></span>`;
         }
       }
 
@@ -2476,8 +2496,8 @@
         container.scrollTop = container.scrollHeight;
       }
 
-      // Auto-Delete after 24h in memory
-      const remainingLifetime = Math.max(1000, ONE_DAY_MS - age);
+      // Auto-Delete exactly at 11:59:59 PM tonight (same day)
+      const remainingLifetime = getMsUntilMidnightTonight();
       setTimeout(() => {
         row.remove();
         renderedMsgMap.delete(dedupeKey);
@@ -2500,32 +2520,27 @@
         badge.innerHTML = '✓✓';
         badge.title = 'Delivered to recipient';
       } else if (status === 'failed') {
-        badge.innerHTML = `! <span class="msg-failed-action" onclick="retryFailedMessage('${msgId}')">Retry</span>`;
+        badge.innerHTML = `! <span class="msg-failed-action" onclick="retryFailedMessage('${msgId}', event)">Retry</span>`;
         badge.title = 'Failed to send. Click Retry.';
       }
 
       if (pendingOutgoingMsgs.has(msgId)) {
         const item = pendingOutgoingMsgs.get(msgId);
         item.status = status;
-        if (status === 'delivered') {
-          // Delivered successfully, can be kept or pruned
-        }
       }
     }
 
-    async function retryFailedMessage(msgId) {
+    async function retryFailedMessage(msgId, evt) {
+      if (evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+      }
       const item = pendingOutgoingMsgs.get(msgId);
       if (!item) {
         showToast('Message details not found for retry');
         return;
       }
 
-      if (item.retryCount >= 4) {
-        showToast('Max retries reached. Please check network.');
-        return;
-      }
-
-      item.retryCount = (item.retryCount || 0) + 1;
       updateMessageStatus(msgId, 'sending');
 
       try {
@@ -2537,19 +2552,22 @@
           senderPeerId: myPeerId,
           targetAlias: targetAlias,
           payload: encryptedPayload,
-          timestamp: item.timestamp,
+          timestamp: Date.now(), // update timestamp for fresh attempt
           replyTo: item.replyTo
         };
 
         const success = await broadcastSignal(packet);
         if (success) {
           updateMessageStatus(msgId, 'sent');
+          showToast('Message resent successfully');
         } else {
           updateMessageStatus(msgId, 'failed');
+          showToast('Retry failed: Please check internet');
         }
       } catch (err) {
         console.error('Retry error:', err);
         updateMessageStatus(msgId, 'failed');
+        showToast('Retry error: ' + (err.message || 'Check network'));
       }
     }
 
@@ -2617,16 +2635,22 @@
     }
 
     document.getElementById('sendChatBtn').addEventListener('click', sendCurrentChatMessage);
+    let lastTypingBroadcast = 0;
     document.getElementById('chatMessageInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         sendCurrentChatMessage();
       } else {
-        broadcastSignal({
-          type: 'typing',
-          senderAlias: myAlias,
-          senderPeerId: myPeerId
-        });
+        // Throttled typing broadcast (max once every 5 seconds) to avoid consuming relay message quota
+        const now = Date.now();
+        if (now - lastTypingBroadcast > 5000) {
+          lastTypingBroadcast = now;
+          broadcastSignal({
+            type: 'typing',
+            senderAlias: myAlias,
+            senderPeerId: myPeerId
+          });
+        }
       }
     });
 
