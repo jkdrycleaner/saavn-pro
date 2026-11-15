@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v10</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v11</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1430,7 +1430,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v10</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v11</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -2306,7 +2306,7 @@
       });
     }
 
-    async function broadcastSignal(payload, timeoutMs = 10000) {
+    async function broadcastSignal(payload, timeoutMs = 12000) {
       const payloadString = JSON.stringify(payload);
 
       // 1. Local BroadcastChannel for same-device tabs/PWAs
@@ -2314,8 +2314,7 @@
         try { broadcastChan.postMessage(payload); } catch(e) {}
       }
 
-      // 2. High-speed HTTPS POST to ntfy Relay with timeout and status check
-      // Note: We use simple text/plain body without custom headers to avoid CORS preflight delays on mobile networks
+      // 2. High-speed HTTPS POST to ntfy Relay with timeout, status check, and detailed diagnostic toast
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -2326,10 +2325,18 @@
           signal: controller.signal
         });
         clearTimeout(timer);
-        return response.ok;
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          console.warn('Relay HTTP non-200:', response.status, errText);
+          showToast(`Relay Error (${response.status}): ${errText || 'Blocked'}`);
+          return false;
+        }
+        return true;
       } catch(e) {
         clearTimeout(timer);
         console.warn('Relay POST failed or timed out:', e);
+        const isAbort = e.name === 'AbortError';
+        showToast(isAbort ? 'Send timed out (12s). Check signal.' : `Network error: ${e.message || 'Blocked by phone/network'}`);
         return false;
       }
     }
@@ -2627,7 +2634,6 @@
         updateMessageStatus(msgId, 'sent');
       } else {
         updateMessageStatus(msgId, 'failed');
-        showToast('Message not sent. Check internet connection.');
       }
     }
 
