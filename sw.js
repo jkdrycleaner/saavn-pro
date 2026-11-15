@@ -1,5 +1,5 @@
 // Network-first Service Worker so updates always fetch latest code immediately
-const CACHE_NAME = 'saavn-pro-cache-v9';
+const CACHE_NAME = 'saavn-pro-cache-v10';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -15,7 +15,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Always fetch latest code from network, fallback to cache only when offline
+  const url = new URL(event.request.url);
+
+  // NEVER intercept cross-origin API / relay calls (ntfy.sh, peerjs, etc.)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Always fetch latest code from network for same-origin app files, fallback to cache only when offline
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {

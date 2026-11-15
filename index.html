@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v9</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v10</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1430,7 +1430,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v9</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v10</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -2306,7 +2306,7 @@
       });
     }
 
-    async function broadcastSignal(payload, timeoutMs = 8000) {
+    async function broadcastSignal(payload, timeoutMs = 10000) {
       const payloadString = JSON.stringify(payload);
 
       // 1. Local BroadcastChannel for same-device tabs/PWAs
@@ -2315,16 +2315,13 @@
       }
 
       // 2. High-speed HTTPS POST to ntfy Relay with timeout and status check
+      // Note: We use simple text/plain body without custom headers to avoid CORS preflight delays on mobile networks
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
 
       try {
         const response = await fetch(RELAY_URL, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain',
-            'Priority': 'urgent'
-          },
           body: payloadString,
           signal: controller.signal
         });
