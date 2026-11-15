@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v13</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v14</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1439,7 +1439,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v13</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v14</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -2048,6 +2048,7 @@
       // song:1 -> cat:midnight -> cat:midnight -> logo:saavn -> song:1
       if (seqStr.endsWith('song:1 -> cat:midnight -> cat:midnight -> logo:saavn -> song:1')) {
         secretPatternSteps = [];
+        showToast('Entering as 83770...');
         autoLoginDirect(PEER_B);
         return;
       }
@@ -2056,6 +2057,7 @@
       // song:3 -> cat:deep -> cat:deep -> logo:saavn -> song:3
       if (seqStr.endsWith('song:3 -> cat:deep -> cat:deep -> logo:saavn -> song:3')) {
         secretPatternSteps = [];
+        showToast('Entering as 71339...');
         autoLoginDirect(PEER_A);
         return;
       }
