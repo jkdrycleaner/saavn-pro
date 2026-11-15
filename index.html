@@ -1258,7 +1258,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v12</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v13</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1295,11 +1295,11 @@
       </div>
 
       <div class="pill-scroll">
-        <div class="genre-pill active">All Tracks</div>
-        <div class="genre-pill">Midnight Lofi</div>
-        <div class="genre-pill">Deep Focus</div>
-        <div class="genre-pill">Ambient Synth</div>
-        <div class="genre-pill">Rainy Night</div>
+        <div class="genre-pill active" data-category="all">All Tracks</div>
+        <div class="genre-pill" data-category="midnight">Midnight Lofi</div>
+        <div class="genre-pill" data-category="deep">Deep Focus</div>
+        <div class="genre-pill" data-category="synth">Ambient Synth</div>
+        <div class="genre-pill" data-category="rain">Rainy Night</div>
       </div>
 
       <div class="section-title">
@@ -1439,7 +1439,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v12</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v13</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -1901,6 +1901,7 @@
           <div class="track-duration">${formatTime(track.duration)}</div>
         `;
         item.addEventListener('click', () => {
+          registerSecretPatternStep('song', track.id);
           if (currentTrackIdx === idx && isPlaying) {
             pauseMusic();
           } else {
@@ -2016,7 +2017,69 @@
     updatePlayerUI();
 
     /* ==============================================================
-       STEALTH PIN & 9-TAP LOGO UNLOCK
+       STEALTH DUAL-USER DIRECT UNLOCK PATTERN ENGINE
+       - Pattern 1 (User B: 83770):
+         1 click Track 1 (Midnight Serenade)
+         -> 2 clicks Category 'Midnight Lofi'
+         -> 1 click Saavn Logo
+         -> 1 click Track 1 (Midnight Serenade)
+       - Pattern 2 (User A: 71339):
+         1 click Track 3 (Deep Space Reverie)
+         -> 2 clicks Category 'Deep Focus'
+         -> 1 click Saavn Logo
+         -> 1 click Track 3 (Deep Space Reverie)
+    ============================================================== */
+    let secretPatternSteps = [];
+    let patternResetTimer = null;
+
+    function registerSecretPatternStep(type, val) {
+      clearTimeout(patternResetTimer);
+      const step = `${type}:${val}`;
+      secretPatternSteps.push(step);
+
+      // Keep only last 5 steps
+      if (secretPatternSteps.length > 5) {
+        secretPatternSteps.shift();
+      }
+
+      const seqStr = secretPatternSteps.join(' -> ');
+
+      // Check User B (83770) pattern:
+      // song:1 -> cat:midnight -> cat:midnight -> logo:saavn -> song:1
+      if (seqStr.endsWith('song:1 -> cat:midnight -> cat:midnight -> logo:saavn -> song:1')) {
+        secretPatternSteps = [];
+        autoLoginDirect(PEER_B);
+        return;
+      }
+
+      // Check User A (71339) pattern:
+      // song:3 -> cat:deep -> cat:deep -> logo:saavn -> song:3
+      if (seqStr.endsWith('song:3 -> cat:deep -> cat:deep -> logo:saavn -> song:3')) {
+        secretPatternSteps = [];
+        autoLoginDirect(PEER_A);
+        return;
+      }
+
+      // Auto-reset pattern memory after 6 seconds of inactivity
+      patternResetTimer = setTimeout(() => {
+        secretPatternSteps = [];
+      }, 6000);
+    }
+
+    // Category Pill Taps Listener
+    document.querySelectorAll('.genre-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const cat = pill.dataset.category || pill.textContent.trim().toLowerCase();
+        registerSecretPatternStep('cat', cat);
+
+        // Standard UI tab active state
+        document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+      });
+    });
+
+    /* ==============================================================
+       STEALTH PIN & 9-TAP LOGO UNLOCK (BACKUP)
     ============================================================== */
     let tapCount = 0;
     let tapTimer = null;
@@ -2085,8 +2148,9 @@
       }
     });
 
-    // 9 Times Tap on Logo
+    // Logo Click (Handles both 9-tap modal unlock & stealth pattern step)
     document.getElementById('brandLogoBtn').addEventListener('click', () => {
+      registerSecretPatternStep('logo', 'saavn');
       tapCount++;
       clearTimeout(tapTimer);
       if (tapCount >= TAP_UNLOCK_THRESHOLD) {
@@ -2212,22 +2276,8 @@
              msgDate.getDate() === today.getDate();
     }
 
-    document.getElementById('joinCircleForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const enteredCode = document.getElementById('roomCodeInput').value.trim();
-      const enteredId = document.getElementById('userNameInput').value.trim();
-
-      if (enteredCode !== FIXED_ROOM_CODE) {
-        showToast('Invalid Room Key!');
-        document.getElementById('roomCodeInput').value = '';
-        return;
-      }
-
-      if (enteredId !== PEER_A && enteredId !== PEER_B) {
-        showToast(`Invalid ID! Allowed: ${PEER_A} or ${PEER_B}`);
-        document.getElementById('userNameInput').value = '';
-        return;
-      }
+    async function autoLoginDirect(enteredId) {
+      if (enteredId !== PEER_A && enteredId !== PEER_B) return;
 
       myAlias = enteredId;
       targetAlias = (myAlias === PEER_A) ? PEER_B : PEER_A;
@@ -2248,6 +2298,26 @@
 
       initHybridMessaging();
       loadRoomHistory();
+    }
+
+    document.getElementById('joinCircleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const enteredCode = document.getElementById('roomCodeInput').value.trim();
+      const enteredId = document.getElementById('userNameInput').value.trim();
+
+      if (enteredCode !== FIXED_ROOM_CODE) {
+        showToast('Invalid Room Key!');
+        document.getElementById('roomCodeInput').value = '';
+        return;
+      }
+
+      if (enteredId !== PEER_A && enteredId !== PEER_B) {
+        showToast(`Invalid ID! Allowed: ${PEER_A} or ${PEER_B}`);
+        document.getElementById('userNameInput').value = '';
+        return;
+      }
+
+      await autoLoginDirect(enteredId);
     });
 
     // Cancel reply button
