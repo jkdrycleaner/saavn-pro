@@ -2290,24 +2290,79 @@
       }
     }
 
-    function openAppLockModal() {
-      // Pre-fill selection
-      const knownOptions = Array.from(presetAppSelect.options).map(o => o.value);
-      if (knownOptions.includes(selectedLockedPackage)) {
-        presetAppSelect.value = selectedLockedPackage;
-        customPkgGroup.style.display = 'none';
+    let installedAppsList = [];
+
+    async function loadDeviceInstalledApps() {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppLockPlugin) {
+          const res = await window.Capacitor.Plugins.AppLockPlugin.getInstalledApps();
+          if (res && res.apps && res.apps.length > 0) {
+            installedAppsList = res.apps.sort((a, b) => a.name.localeCompare(b.name));
+            renderAppsDropdown();
+          }
+        }
+      } catch (e) {
+        console.warn('Could not list device apps:', e);
+      }
+    }
+
+    function renderAppsDropdown() {
+      if (!presetAppSelect) return;
+      presetAppSelect.innerHTML = '';
+
+      // Default common options if list is empty
+      if (installedAppsList.length === 0) {
+        const defaults = [
+          { name: 'WhatsApp', package: 'com.whatsapp' },
+          { name: 'Instagram', package: 'com.instagram.android' },
+          { name: 'Telegram', package: 'org.telegram.messenger' },
+          { name: 'Snapchat', package: 'com.snapchat.android' },
+          { name: 'Google Photos', package: 'com.google.android.apps.photos' },
+          { name: 'Samsung Gallery', package: 'com.samsung.android.gallery.3d' },
+          { name: 'PhonePe', package: 'com.phonepe.app' },
+          { name: 'Paytm', package: 'net.one97.paytm' }
+        ];
+        defaults.forEach(app => {
+          const opt = document.createElement('option');
+          opt.value = app.package;
+          opt.textContent = `${app.name} (${app.package})`;
+          presetAppSelect.appendChild(opt);
+        });
       } else {
-        presetAppSelect.value = 'custom';
-        customPkgInput.value = selectedLockedPackage;
-        customPkgGroup.style.display = 'block';
+        installedAppsList.forEach(app => {
+          const opt = document.createElement('option');
+          opt.value = app.package;
+          opt.textContent = `${app.name} (${app.package})`;
+          presetAppSelect.appendChild(opt);
+        });
       }
 
-      // Pre-fill toggle states
-      if (toggleLockApp) toggleLockApp.checked = isAppLockEnabled;
-      if (toggleHideApp) toggleHideApp.checked = isAppHideEnabled;
-      updateToggleStyles();
+      const customOpt = document.createElement('option');
+      customOpt.value = 'custom';
+      customOpt.textContent = '-- Custom App Package --';
+      presetAppSelect.appendChild(customOpt);
+    }
 
-      appLockModal.classList.remove('hidden');
+    function openAppLockModal() {
+      loadDeviceInstalledApps().then(() => {
+        // Pre-fill selection
+        const knownOptions = Array.from(presetAppSelect.options).map(o => o.value);
+        if (knownOptions.includes(selectedLockedPackage)) {
+          presetAppSelect.value = selectedLockedPackage;
+          customPkgGroup.style.display = 'none';
+        } else {
+          presetAppSelect.value = 'custom';
+          customPkgInput.value = selectedLockedPackage;
+          customPkgGroup.style.display = 'block';
+        }
+
+        // Pre-fill toggle states
+        if (toggleLockApp) toggleLockApp.checked = isAppLockEnabled;
+        if (toggleHideApp) toggleHideApp.checked = isAppHideEnabled;
+        updateToggleStyles();
+
+        appLockModal.classList.remove('hidden');
+      });
     }
 
     if (toggleLockApp) {

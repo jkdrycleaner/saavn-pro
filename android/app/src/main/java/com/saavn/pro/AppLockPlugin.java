@@ -3,15 +3,48 @@ package com.saavn.pro;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.provider.Settings;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 @CapacitorPlugin(name = "AppLockPlugin")
 public class AppLockPlugin extends Plugin {
+
+    @PluginMethod
+    public void getInstalledApps(PluginCall call) {
+        try {
+            PackageManager pm = getContext().getPackageManager();
+            List<ApplicationInfo> packages = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+            JSArray appList = new JSArray();
+
+            for (ApplicationInfo packageInfo : packages) {
+                // Filter launchable user apps
+                Intent launchIntent = pm.getLaunchIntentForPackage(packageInfo.packageName);
+                if (launchIntent != null && !packageInfo.packageName.equals(getContext().getPackageName())) {
+                    String appName = pm.getApplicationLabel(packageInfo).toString();
+                    JSObject appObj = new JSObject();
+                    appObj.put("name", appName);
+                    appObj.put("package", packageInfo.packageName);
+                    appList.put(appObj);
+                }
+            }
+
+            JSObject ret = new JSObject();
+            ret.put("apps", appList);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to list installed apps: " + e.getMessage());
+        }
+    }
 
     @PluginMethod
     public void setSecurityConfig(PluginCall call) {
