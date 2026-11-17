@@ -12,9 +12,13 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import org.json.JSONArray;
 
 @CapacitorPlugin(name = "AppLockPlugin")
 public class AppLockPlugin extends Plugin {
@@ -27,7 +31,6 @@ public class AppLockPlugin extends Plugin {
             JSArray appList = new JSArray();
 
             for (ApplicationInfo packageInfo : packages) {
-                // Filter launchable user apps
                 Intent launchIntent = pm.getLaunchIntentForPackage(packageInfo.packageName);
                 if (launchIntent != null && !packageInfo.packageName.equals(getContext().getPackageName())) {
                     String appName = pm.getApplicationLabel(packageInfo).toString();
@@ -47,55 +50,57 @@ public class AppLockPlugin extends Plugin {
     }
 
     @PluginMethod
-    public void setSecurityConfig(PluginCall call) {
-        Boolean locked = call.getBoolean("locked", false);
-        Boolean hidden = call.getBoolean("hidden", false);
-        String targetPkg = call.getString("targetPackage", "com.whatsapp");
-
-        SharedPreferences prefs = getContext().getSharedPreferences(AppProtectorService.PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit()
-            .putBoolean(AppProtectorService.KEY_LOCKED, locked)
-            .putBoolean(AppProtectorService.KEY_HIDDEN, hidden)
-            .putString(AppProtectorService.KEY_TARGET_PKG, targetPkg)
-            .apply();
-
-        JSObject ret = new JSObject();
-        ret.put("success", true);
-        ret.put("locked", locked);
-        ret.put("hidden", hidden);
-        ret.put("targetPackage", targetPkg);
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void getSecurityConfig(PluginCall call) {
-        SharedPreferences prefs = getContext().getSharedPreferences(AppProtectorService.PREFS_NAME, Context.MODE_PRIVATE);
-        boolean locked = prefs.getBoolean(AppProtectorService.KEY_LOCKED, false);
-        boolean hidden = prefs.getBoolean(AppProtectorService.KEY_HIDDEN, false);
-        String targetPkg = prefs.getString(AppProtectorService.KEY_TARGET_PKG, "com.whatsapp");
-
-        JSObject ret = new JSObject();
-        ret.put("locked", locked);
-        ret.put("hidden", hidden);
-        ret.put("targetPackage", targetPkg);
-        call.resolve(ret);
-    }
-
-    @PluginMethod
-    public void launchTargetApp(PluginCall call) {
-        String targetPkg = call.getString("targetPackage", "com.whatsapp");
+    public void saveMultiAppSettings(PluginCall call) {
         try {
-            Intent launchIntent = getContext().getPackageManager().getLaunchIntentForPackage(targetPkg);
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(launchIntent);
-                call.resolve();
-                return;
+            JSArray lockedArr = call.getArray("lockedPackages");
+            JSArray hiddenArr = call.getArray("hiddenPackages");
+
+            Set<String> lockedSet = new HashSet<>();
+            if (lockedArr != null) {
+                for (int i = 0; i < lockedArr.length(); i++) {
+                    lockedSet.add(lockedArr.getString(i));
+                }
             }
+
+            Set<String> hiddenSet = new HashSet<>();
+            if (hiddenArr != null) {
+                for (int i = 0; i < hiddenArr.length(); i++) {
+                    hiddenSet.add(hiddenArr.getString(i));
+                }
+            }
+
+            SharedPreferences prefs = getContext().getSharedPreferences(AppProtectorService.PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                .putStringSet(AppProtectorService.KEY_LOCKED_SET, lockedSet)
+                .putStringSet(AppProtectorService.KEY_HIDDEN_SET, hiddenSet)
+                .apply();
+
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            ret.put("lockedCount", lockedSet.size());
+            ret.put("hiddenCount", hiddenSet.size());
+            call.resolve(ret);
         } catch (Exception e) {
-            e.printStackTrace();
+            call.reject("Error saving multi app settings: " + e.getMessage());
         }
-        call.reject("Could not launch target package: " + targetPkg);
+    }
+
+    @PluginMethod
+    public void getMultiAppSettings(PluginCall call) {
+        SharedPreferences prefs = getContext().getSharedPreferences(AppProtectorService.PREFS_NAME, Context.MODE_PRIVATE);
+        Set<String> lockedSet = prefs.getStringSet(AppProtectorService.KEY_LOCKED_SET, new HashSet<>());
+        Set<String> hiddenSet = prefs.getStringSet(AppProtectorService.KEY_HIDDEN_SET, new HashSet<>());
+
+        JSArray lockedArr = new JSArray();
+        for (String s : lockedSet) lockedArr.put(s);
+
+        JSArray hiddenArr = new JSArray();
+        for (String s : hiddenSet) hiddenArr.put(s);
+
+        JSObject ret = new JSObject();
+        ret.put("lockedPackages", lockedArr);
+        ret.put("hiddenPackages", hiddenArr);
+        call.resolve(ret);
     }
 
     @PluginMethod

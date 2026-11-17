@@ -57,9 +57,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.6-apk
-          name: "Saavn Pro APK with Live Device Installed Apps & Instant Lock Enforcement"
-          body: "Saavn Pro Stealth APK: Reads all installed user apps via QUERY_ALL_PACKAGES and enforces instant blocking via high-sensitivity Accessibility events."
+          tag_name: v1.7-apk
+          name: "Saavn Pro APK with Multi-App Locker & High-Priority Blocking"
+          body: "Saavn Pro Stealth APK: Multi-app selection list with independent Lock & Hide switches per app, plus immediate activity intent task kill."
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
