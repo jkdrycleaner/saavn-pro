@@ -1,0 +1,3125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
+  <title>Saavn Pro - Music & Ambient Streams</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#121212">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- PeerJS for WebRTC Direct Mesh & Calls -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <style>
+    :root {
+      --bg-base: #121212;
+      --bg-surface: #181818;
+      --bg-card: #202225;
+      --bg-hover: #2a2a2a;
+      --accent: #2BC5B4;
+      --accent-glow: rgba(43, 197, 180, 0.25);
+      --text-main: #FFFFFF;
+      --text-muted: #8e9297;
+      --danger: #FF4757;
+      --call-green: #2ecc71;
+      --border-subtle: #27292d;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      /* WhatsApp Dark Mode Palette */
+      --wa-bg: #0b141a;
+      --wa-header: #1f2c34;
+      --wa-outgoing: #005c4b;
+      --wa-incoming: #202c33;
+      --wa-input-bg: #2a3942;
+      --wa-text-green: #00a884;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      position: fixed;
+      inset: 0;
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      font-size: 15px;
+    }
+
+    input, select, textarea, button {
+      font-family: inherit;
+      user-select: auto;
+      font-size: 16px; /* Prevents auto-zoom on mobile */
+    }
+
+    /* Auto Refresh / Sync Indicator Pill */
+    .hard-refresh-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+      border-radius: 50%;
+      transition: transform 0.3s ease, color 0.2s;
+    }
+
+    .hard-refresh-btn:active {
+      transform: rotate(180deg) scale(0.9);
+      color: var(--accent);
+    }
+
+    /* Screen Transitions & Overlays */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-base);
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    .hidden, #callOverlay.hidden, #incomingCallToast.hidden, #authModal.hidden, #chat-screen.hidden {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    /* =================================================== */
+    /* 1. FRONT-END DISGUISE (MUSIC PLAYER MODE)          */
+    /* =================================================== */
+    #music-screen {
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .music-header {
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(18, 18, 18, 0.98);
+      border-bottom: 1px solid var(--border-subtle);
+      z-index: 20;
+      flex-shrink: 0;
+      min-height: 52px;
+    }
+
+    .brand-logo-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-main);
+      outline: none;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .brand-logo-btn:active {
+      transform: scale(0.95);
+    }
+
+    .brand-icon-svg {
+      width: 26px;
+      height: 26px;
+      fill: none;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      white-space: nowrap;
+    }
+
+    .brand-title span {
+      color: var(--accent);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      font-weight: 800;
+      background: rgba(43, 197, 180, 0.15);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .search-box-wrapper {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 34px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 17px;
+      padding: 0 28px 0 28px;
+      color: var(--text-main);
+      font-size: 14px;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-icon-left {
+      position: absolute;
+      left: 8px;
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-btn-enter {
+      position: absolute;
+      right: 4px;
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 3px;
+    }
+
+    /* Music Scroll Content */
+    .music-scroll-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 14px 100px;
+    }
+
+    .hero-banner {
+      background: linear-gradient(135deg, #182825 0%, #151d1c 100%);
+      border: 1px solid rgba(43, 197, 180, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .hero-text h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .hero-text p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .section-title small {
+      font-size: 0.75rem;
+      color: var(--accent);
+      cursor: pointer;
+    }
+
+    .playlist-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .track-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px;
+      background: var(--bg-surface);
+      border-radius: 10px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    .track-item.active {
+      border-color: rgba(43, 197, 180, 0.4);
+      background: rgba(43, 197, 180, 0.08);
+    }
+
+    .track-art {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .track-art svg {
+      width: 20px;
+      height: 20px;
+      fill: var(--accent);
+    }
+
+    .track-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .track-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-artist {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .track-duration {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Bottom Mini Player */
+    .mini-player-bar {
+      position: relative;
+      width: 100%;
+      background: rgba(24, 24, 24, 0.98);
+      border-top: 1px solid var(--border-subtle);
+      padding: 6px 14px calc(8px + env(safe-area-inset-bottom));
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .scrubber-container {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .time-lbl {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      min-width: 28px;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: #333;
+      border-radius: 2px;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .player-controls-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .current-track-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 60%;
+    }
+
+    .mini-art {
+      width: 36px;
+      height: 36px;
+      border-radius: 6px;
+      background: #282828;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .mini-art svg {
+      width: 18px;
+      height: 18px;
+      fill: var(--accent);
+    }
+
+    .mini-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mini-artist {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .player-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ctrl-btn {
+      background: none;
+      border: none;
+      color: var(--text-main);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px;
+    }
+
+    .ctrl-btn.play-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--text-main);
+      color: #121212;
+    }
+
+    .pill-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+
+    .pill-scroll::-webkit-scrollbar { display: none; }
+
+    .genre-pill {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .genre-pill.active {
+      background: var(--accent);
+      color: #0b221e;
+      font-weight: 700;
+    }
+
+    /* =================================================== */
+    /* 2. AUTH / JOIN CIRCLE MODAL                         */
+    /* =================================================== */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.88);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .auth-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      width: 100%;
+      max-width: 350px;
+      border-radius: 16px;
+      padding: 22px 18px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.9);
+    }
+
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(43, 197, 180, 0.15);
+      color: var(--accent);
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .auth-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .auth-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      line-height: 1.35;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .form-control {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      height: 44px;
+      padding: 0 12px;
+      color: #fff;
+      font-size: 16px;
+      outline: none;
+    }
+
+    .form-control:focus {
+      border-color: var(--accent);
+    }
+
+    .input-with-eye {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-with-eye .form-control {
+      width: 100%;
+      padding-right: 44px;
+    }
+
+    .toggle-pwd-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 6px;
+    }
+
+    .toggle-pwd-btn:active {
+      color: var(--accent);
+    }
+
+    .btn-primary {
+      width: 100%;
+      height: 44px;
+      background: var(--accent);
+      color: #0d2621;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      height: 38px;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    /* =================================================== */
+    /* 3. WHATSAPP STYLE RESPONSIVE STEALTH CHAT           */
+    /* =================================================== */
+    #chat-screen {
+      z-index: 50;
+      background: var(--wa-bg);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      height: 100dvh;
+    }
+
+    /* WhatsApp Header */
+    .chat-header {
+      padding: 6px 10px;
+      background: var(--wa-header);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      z-index: 60;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      flex-shrink: 0;
+      height: 56px;
+      min-height: 56px;
+      box-sizing: border-box;
+    }
+
+    .chat-left-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    .room-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #00a884;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+      color: #fff;
+    }
+
+    .room-name-meta {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+      min-width: 0;
+      flex: 1 1 auto;
+      gap: 2px;
+    }
+
+    .room-name-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #e9edef;
+      line-height: 1.25;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .room-sub-meta {
+      font-size: 0.68rem;
+      color: #8696a0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    .chat-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .icon-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      color: #aebac1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+    }
+
+    .icon-action-btn svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .icon-action-btn:active {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .icon-action-btn.panic-btn {
+      color: #2BC5B4;
+      background: rgba(43, 197, 180, 0.12);
+    }
+
+    /* WhatsApp Wallpaper & Message Container */
+    .chat-messages-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      -webkit-overflow-scrolling: touch;
+      background-color: #0b141a;
+      background-image: radial-gradient(#1a2730 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    .encryption-notice {
+      align-self: center;
+      background: #182229;
+      color: #ffd279;
+      font-size: 0.72rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+      text-align: center;
+      max-width: 90%;
+      margin: 4px 0 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      line-height: 1.35;
+    }
+
+    .msg-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 80%;
+      margin-bottom: 2px;
+      cursor: pointer;
+    }
+
+    .msg-row.outgoing {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .msg-row.incoming {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .msg-bubble {
+      padding: 6px 10px 4px 10px;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      line-height: 1.35;
+      position: relative;
+      word-break: break-word;
+      user-select: text;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      transition: transform 0.15s ease;
+    }
+
+    .msg-bubble:active {
+      transform: scale(0.98);
+    }
+
+    .msg-row.outgoing .msg-bubble {
+      background: var(--wa-outgoing);
+      color: #e9edef;
+      border-top-right-radius: 0;
+    }
+
+    .msg-row.incoming .msg-bubble {
+      background: var(--wa-incoming);
+      color: #e9edef;
+      border-top-left-radius: 0;
+    }
+
+    /* Reply Quote inside Bubble */
+    .msg-quote-ref {
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 3px solid #2BC5B4;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      font-size: 0.75rem;
+      color: #c0c8cc;
+      overflow: hidden;
+    }
+
+    .msg-quote-ref .quote-author {
+      font-weight: 700;
+      color: #2BC5B4;
+      margin-bottom: 2px;
+      font-size: 0.72rem;
+    }
+
+    .msg-quote-ref .quote-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      opacity: 0.85;
+    }
+
+    .msg-sender {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #53bdeb;
+      margin-bottom: 2px;
+    }
+
+    .msg-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.65rem;
+      color: #8696a0;
+      margin-top: 2px;
+      float: right;
+      padding-left: 10px;
+    }
+
+    .wa-status-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.72rem;
+      line-height: 1;
+    }
+
+    .wa-status-badge.sending {
+      color: #8696a0;
+    }
+
+    .wa-status-badge.sent {
+      color: #8696a0;
+    }
+
+    .wa-status-badge.delivered {
+      color: #53bdeb;
+      font-weight: bold;
+    }
+
+    .wa-status-badge.failed {
+      color: #ff4d4f;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .msg-failed-action {
+      font-size: 0.65rem;
+      color: #ff4d4f;
+      margin-left: 3px;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .wa-check {
+      color: #53bdeb;
+      font-size: 0.75rem;
+    }
+
+    /* Typing Indicator */
+    .typing-bar {
+      padding: 2px 14px;
+      font-size: 0.75rem;
+      color: #00a884;
+      font-style: italic;
+      min-height: 20px;
+      display: none;
+      background: transparent;
+    }
+
+    /* Active Reply Bar Preview above input */
+    .reply-preview-bar {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: #182229;
+      border-left: 4px solid #00a884;
+      font-size: 0.78rem;
+      color: #e9edef;
+      animation: fadeInReply 0.2s ease-out;
+    }
+
+    .reply-preview-bar.active {
+      display: flex;
+    }
+
+    .reply-preview-content {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .reply-preview-author {
+      font-weight: 700;
+      color: #00a884;
+      font-size: 0.72rem;
+      margin-bottom: 1px;
+    }
+
+    .reply-preview-text {
+      color: #8696a0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.75rem;
+    }
+
+    .reply-close-btn {
+      background: transparent;
+      border: none;
+      color: #8696a0;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* WhatsApp Bottom Input Bar */
+    .chat-input-bar {
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+      background: var(--wa-header);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .chat-input-pill {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: var(--wa-input-bg);
+      border-radius: 24px;
+      padding: 0 12px;
+      height: 42px;
+    }
+
+    .chat-text-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .chat-send-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #00a884;
+      border: none;
+      color: #111b21;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .chat-send-btn:active {
+      transform: scale(0.94);
+    }
+
+    /* =================================================== */
+    /* 4. CALL OVERLAY (AUDIO / VIDEO)                     */
+    /* =================================================== */
+    .call-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      background: #0b141a;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .call-top-bar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      z-index: 10;
+    }
+
+    .call-status-pill {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 12px;
+      border-radius: 14px;
+      font-size: 0.75rem;
+      color: #2BC5B4;
+      margin-bottom: 8px;
+    }
+
+    .call-peer-name {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .call-timer {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .video-stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      background: #000;
+    }
+
+    .video-stage.active { display: block; }
+
+    #remoteVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #localVideo {
+      position: absolute;
+      top: 70px;
+      right: 14px;
+      width: 90px;
+      height: 125px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 2px solid #2BC5B4;
+      background: #111;
+      z-index: 15;
+    }
+
+    .audio-avatar-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+      z-index: 10;
+    }
+
+    .audio-pulsing-avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #005c4b 0%, #00a884 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .call-bottom-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 25;
+    }
+
+    .call-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .call-btn.off {
+      background: rgba(255, 71, 87, 0.3);
+      color: var(--danger);
+    }
+
+    .call-btn.end-btn {
+      background: var(--danger);
+      width: 58px;
+      height: 58px;
+    }
+
+    /* Silent In-App Call Toast (No System Notification) */
+    .incoming-call-toast {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 24px);
+      max-width: 440px;
+      background: #1f2c34;
+      border: 1px solid #00a884;
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toast-peer-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .toast-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #fff;
+    }
+
+    .toast-btn.accept { background: var(--call-green); }
+    .toast-btn.decline { background: var(--danger); }
+
+    .app-snackbar {
+      position: fixed;
+      bottom: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1f2c34;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 0.78rem;
+      z-index: 200;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .app-snackbar.show { opacity: 1; }
+
+    /* =================================================== */
+    /* 5. PRIVACY PROTECTION OVERLAY (RECENT APPS HIDE)     */
+    /* =================================================== */
+    .privacy-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      background-color: #121212;
+      z-index: 999999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease-in;
+    }
+
+    .privacy-overlay.active {
+      opacity: 1 !important;
+      pointer-events: all !important;
+    }
+
+    .privacy-icon-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .privacy-icon-svg {
+      width: 84px;
+      height: 84px;
+    }
+
+    .privacy-brand-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: 0.5px;
+    }
+
+    .privacy-brand-name span {
+      color: #2BC5B4;
+    }
+
+    @keyframes fadeInReply {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================== -->
+  <!-- 1. MUSIC PLAYER FRONT-END DISGUISE SCREEN                      -->
+  <!-- ============================================================== -->
+  <div id="music-screen" class="screen">
+    <header class="music-header">
+      <button id="brandLogoBtn" class="brand-logo-btn" title="Saavn Pro">
+        <svg class="brand-icon-svg" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r="17" fill="#181818" stroke="#2BC5B4" stroke-width="1.8"/>
+          <line x1="9" y1="18" x2="9" y2="18" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="13.5" y1="13" x2="13.5" y2="23" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="18" y1="9" x2="18" y2="27" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+          <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v15</span></div>
+      </button>
+
+      <div class="search-box-wrapper">
+        <span class="search-icon-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </span>
+        <input type="text" id="musicSearchInput" class="search-input" placeholder="Search songs, artists..." autocomplete="off" autocorrect="off" autocapitalize="off">
+        <button id="searchEnterBtn" class="search-btn-enter" title="Search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Small Hard Refresh Button on Music Screen -->
+      <button id="musicHardRefreshBtn" class="hard-refresh-btn" title="Hard Refresh & Clear Cache">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </header>
+
+    <div class="music-scroll-body">
+      <div class="hero-banner">
+        <div class="hero-text">
+          <h2>Chill & Lofi Beats</h2>
+          <p>Curated chillhop, rain ambient & focus audio</p>
+        </div>
+      </div>
+
+      <div class="pill-scroll">
+        <div class="genre-pill active" data-category="all">All Tracks</div>
+        <div class="genre-pill" data-category="midnight">Midnight Lofi</div>
+        <div class="genre-pill" data-category="deep">Deep Focus</div>
+        <div class="genre-pill" data-category="synth">Ambient Synth</div>
+        <div class="genre-pill" data-category="rain">Rainy Night</div>
+      </div>
+
+      <div class="section-title">
+        <span>Trending Vibes</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="localAudioInput" style="font-size: 0.75rem; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 4px; background: rgba(43, 197, 180, 0.12); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(43, 197, 180, 0.3);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+            Add Songs
+          </label>
+          <input type="file" id="localAudioInput" accept="audio/*" multiple style="display: none;">
+          <small id="shuffleBtn">Shuffle Play</small>
+        </div>
+      </div>
+
+      <div class="playlist-grid" id="playlistContainer"></div>
+    </div>
+
+    <!-- Mini Bottom Music Player -->
+    <div class="mini-player-bar">
+      <div class="scrubber-container">
+        <span class="time-lbl" id="trackCurrentTime">0:00</span>
+        <div class="progress-bar-wrap" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="time-lbl" id="trackTotalTime">2:45</span>
+      </div>
+
+      <div class="player-controls-row">
+        <div class="current-track-info">
+          <div class="mini-art">
+            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <div class="mini-text">
+            <div class="mini-title" id="miniPlayerTitle">Midnight Serenade</div>
+            <div class="mini-artist" id="miniPlayerArtist">Komorebi Lofi</div>
+          </div>
+        </div>
+
+        <div class="player-buttons">
+          <button class="ctrl-btn" id="prevTrackBtn" title="Previous">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="19 20 9 12 19 4 19 20"></polygon>
+              <line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5"></line>
+            </svg>
+          </button>
+
+          <button class="ctrl-btn play-circle" id="playPauseBtn" title="Play / Pause">
+            <svg id="playIconSvg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg id="pauseIconSvg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+
+          <button class="ctrl-btn" id="nextTrackBtn" title="Next">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 4 15 12 5 20 5 4"></polygon>
+              <line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 2. LOGIN / ROOM AUTH MODAL                                     -->
+  <!-- ============================================================== -->
+  <div id="authModal" class="modal-backdrop hidden">
+    <div class="auth-card">
+      <div class="auth-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        Encrypted P2P Space
+      </div>
+      <h3 class="auth-title">Private Space</h3>
+      <p class="auth-desc">End-to-End encrypted WebRTC mesh. Select your identity and confirm room key.</p>
+
+      <form id="joinCircleForm" onsubmit="return false;">
+        <div class="form-group">
+          <label class="form-label" for="userNameInput">Your Secret ID</label>
+          <div class="input-with-eye">
+            <input type="password" id="userNameInput" class="form-control" placeholder="Enter ID" required maxlength="15" autocomplete="off">
+            <button type="button" class="toggle-pwd-btn" id="toggleIdVisibilityBtn" title="Show / Hide ID">
+              <svg id="eyeIdOpen" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg id="eyeIdClosed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="roomCodeInput">Secret Room Key</label>
+          <div class="input-with-eye">
+            <input type="password" id="roomCodeInput" class="form-control" placeholder="Enter Room Key" required maxlength="20" autocomplete="off">
+            <button type="button" class="toggle-pwd-btn" id="toggleRoomVisibilityBtn" title="Show / Hide Room Key">
+              <svg id="eyeRoomOpen" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              <svg id="eyeRoomClosed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" id="btnJoinRoom" class="btn-primary">
+          Enter Encrypted Chat
+        </button>
+
+        <button type="button" id="btnCancelAuth" class="btn-secondary">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 3. WHATSAPP STYLE STEALTH CHAT INTERFACE                       -->
+  <!-- ============================================================== -->
+  <div id="chat-screen" class="screen hidden">
+    <!-- Header -->
+    <header class="chat-header">
+      <div class="chat-left-info">
+        <div class="room-avatar" id="roomAvatarText">S</div>
+        <div class="room-name-meta">
+          <div class="room-name-title">
+            <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;">Chat</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v15</span>
+          </div>
+          <div class="room-sub-meta">
+            <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
+            <span style="color: #555;">•</span>
+            <span id="connectionStatusText" style="overflow: hidden; text-overflow: ellipsis;">Connecting...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-header-actions">
+        <!-- Small Hard Refresh Button in Chat -->
+        <button id="chatHardRefreshBtn" class="icon-action-btn" title="Refresh Connection">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+
+        <!-- Voice Call -->
+        <button id="startAudioCallBtn" class="icon-action-btn" title="Voice Call">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+          </svg>
+        </button>
+
+        <!-- Video Call -->
+        <button id="startVideoCallBtn" class="icon-action-btn" title="Video Call">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>
+        </button>
+
+        <!-- Panic Button: Instant Escape to Music -->
+        <button id="panicButton" class="icon-action-btn panic-btn" title="PANIC: Return to Music">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Message Stream -->
+    <div class="chat-messages-container" id="chatMessages">
+      <div class="encryption-notice">
+        🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct tonight at 11:59 PM. Tap the music note above for instant panic lock.
+      </div>
+    </div>
+
+    <div id="typingIndicator" class="typing-bar">typing...</div>
+
+    <!-- Reply Bar Preview -->
+    <div id="replyPreviewBar" class="reply-preview-bar">
+      <div class="reply-preview-content">
+        <div class="reply-preview-author" id="replyPreviewAuthor">Replying to...</div>
+        <div class="reply-preview-text" id="replyPreviewText">Message</div>
+      </div>
+      <button type="button" class="reply-close-btn" id="cancelReplyBtn" title="Cancel Reply">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- WhatsApp Bottom Input Bar -->
+    <footer class="chat-input-bar">
+      <div class="chat-input-pill">
+        <input type="text" id="chatMessageInput" class="chat-text-input" placeholder="Message" autocomplete="off">
+      </div>
+      <button id="sendChatBtn" class="chat-send-btn" title="Send">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </footer>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 4. P2P AUDIO / VIDEO CALL SCREEN                               -->
+  <!-- ============================================================== -->
+  <div id="callOverlay" class="call-overlay hidden" style="display: none !important;">
+    <div class="call-top-bar">
+      <div class="call-status-pill">
+        <span id="callStateLabel">Connecting Call...</span>
+      </div>
+      <div class="call-peer-name" id="callTargetName">Peer</div>
+      <div class="call-timer" id="callDurationTimer">00:00</div>
+    </div>
+
+    <div class="video-stage" id="videoStage">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="localVideo" autoplay playsinline muted></video>
+    </div>
+
+    <div class="audio-avatar-stage" id="audioStage">
+      <div class="audio-pulsing-avatar" id="callAvatarInitial">P</div>
+    </div>
+
+    <div class="call-bottom-controls">
+      <button id="muteMicBtn" class="call-btn" title="Mute Microphone">
+        <svg id="micOnSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+        <svg id="micOffSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+          <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+          <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
+
+      <button id="toggleCameraBtn" class="call-btn" title="Toggle Camera">
+        <svg id="camOnSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="23 7 16 12 23 17 23 7"></polygon>
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+        </svg>
+        <svg id="camOffSvg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <line x1="1" y1="1" x2="23" y2="23"></line>
+          <path d="M21 15.5l-4.5-3.5L21 8.5v7zM16 16v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"></path>
+        </svg>
+      </button>
+
+      <button id="switchCameraBtn" class="call-btn" title="Flip Camera">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+
+      <button id="endCallBtn" class="call-btn end-btn" title="End Call">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"></path>
+          <line x1="23" y1="1" x2="1" y2="23"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- In-App Silent Call Alert (No OS/System Notification) -->
+  <div id="incomingCallToast" class="incoming-call-toast hidden" style="display: none !important;">
+    <div class="toast-peer-info">
+      <div class="room-avatar" id="toastAvatarInitial">P</div>
+      <div>
+        <div style="font-weight: 600; font-size: 0.9rem;" id="toastCallerName">Peer</div>
+        <div style="font-size: 0.72rem; color: #8696a0;" id="toastCallType">Incoming Call...</div>
+      </div>
+    </div>
+    <div class="toast-actions">
+      <button id="toastDeclineBtn" class="toast-btn decline" title="Decline">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      <button id="toastAcceptBtn" class="toast-btn accept" title="Answer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="snackbar" class="app-snackbar"></div>
+
+  <!-- ============================================================== -->
+  <!-- 5. GLOBAL PRIVACY PROTECTION OVERLAY (RECENT APPS / MINIMIZE) -->
+  <!-- ============================================================== -->
+  <div id="globalPrivacyOverlay" class="privacy-overlay" aria-hidden="true">
+    <div class="privacy-icon-wrap">
+      <svg class="privacy-icon-svg" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r="17" fill="#181818" stroke="#2BC5B4" stroke-width="1.8"/>
+        <line x1="9" y1="18" x2="9" y2="18" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="13.5" y1="13" x2="13.5" y2="23" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="18" y1="9" x2="18" y2="27" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+        <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
+      </svg>
+      <div class="privacy-brand-name">Saavn <span>PRO</span></div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- APPLICATION SCRIPTS (FIXED PEERS, EXACT ROOM & CRYPTO)        -->
+  <!-- ============================================================== -->
+  <script>
+    /* Fixed Confidential Configurations */
+    const FIXED_ROOM_CODE = "9873396476";
+    const SECRET_PIN = "9873396476";
+    const TAP_UNLOCK_THRESHOLD = 9;
+
+    const PEER_PREFIX = "saavn-fixed-";
+    const PEER_A = "71339";
+    const PEER_B = "83770";
+
+    // Disable OS Push Notifications for stealth
+    if (window.Notification) {
+      window.Notification.requestPermission = () => Promise.resolve('denied');
+    }
+
+    /* AES-GCM 256-bit Client-Side Encryption Key derivation */
+    let roomCryptoKey = null;
+
+    async function deriveRoomKey(roomCode) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        enc.encode("saavn-secret-salt-" + roomCode),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+
+      return await crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: enc.encode("saavn-pwa-salt-2026"),
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"]
+      );
+    }
+
+    async function encryptPayload(text) {
+      if (!roomCryptoKey) {
+        throw new Error("Security Error: Room encryption key is not initialized");
+      }
+      try {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const encrypted = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv: iv },
+          roomCryptoKey,
+          enc.encode(text)
+        );
+        return {
+          ciphertext: Array.from(new Uint8Array(encrypted)),
+          iv: Array.from(iv),
+          isEncrypted: true
+        };
+      } catch (err) {
+        throw new Error("Encryption failed: " + (err.message || err));
+      }
+    }
+
+    async function decryptPayload(payload) {
+      if (!payload || !payload.isEncrypted) return '';
+      if (!roomCryptoKey) return '[Encryption Key Unavailable]';
+      try {
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
+          roomCryptoKey,
+          new Uint8Array(payload.ciphertext)
+        );
+        return new TextDecoder().decode(decrypted);
+      } catch (e) {
+        return "[Decryption failed: Key mismatch]";
+      }
+    }
+
+    /* =======================================================
+       AUTO HARD REFRESH & CACHE PURGE SYSTEM
+       - Clears stale Service Worker caches on load
+       - Auto re-syncs URL without stale cache
+    ======================================================= */
+    async function performHardRefresh() {
+      showToast('Refreshing app & clearing cache...');
+      if ('caches' in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        } catch (e) {}
+      }
+      if ('serviceWorker' in navigator) {
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let reg of registrations) {
+            await reg.unregister();
+          }
+        } catch (e) {}
+      }
+      // Force reload with cache bypass
+      window.location.reload(true);
+    }
+
+    document.getElementById('musicHardRefreshBtn').addEventListener('click', performHardRefresh);
+    document.getElementById('chatHardRefreshBtn').addEventListener('click', performHardRefresh);
+
+    /* Service Worker registration with Network-First handling */
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js?v=' + Date.now()).then(reg => {
+          reg.update(); // Always check for latest file on server
+        }).catch(() => {});
+      });
+    }
+
+    /* Ambient Audio Synthesizer & Local Audio Player Engine */
+    let PLAYLIST = [
+      { id: 1, title: 'Midnight Serenade', artist: 'Komorebi Lofi', duration: 165, type: 'lofi-chord', file: null, audioUrl: null },
+      { id: 2, title: 'Tokyo Rain Walk', artist: 'Aethelgard Ambient', duration: 192, type: 'rain-pad', file: null, audioUrl: null },
+      { id: 3, title: 'Deep Space Reverie', artist: 'Nebula Sounds', duration: 210, type: 'synth-drone', file: null, audioUrl: null },
+      { id: 4, title: 'Cafe Study Session', artist: 'Chilled Cow Studio', duration: 178, type: 'lofi-chord', file: null, audioUrl: null },
+      { id: 5, title: 'Emerald Dreams', artist: 'Subtle Waveform', duration: 185, type: 'synth-drone', file: null, audioUrl: null }
+    ];
+
+    let currentTrackIdx = 0;
+    let isPlaying = false;
+    let trackElapsed = 0;
+    let musicTimer = null;
+    let audioCtx = null;
+    let activeSynthNodes = [];
+    const localAudioElement = new Audio();
+
+    localAudioElement.addEventListener('timeupdate', () => {
+      if (!localAudioElement.duration) return;
+      trackElapsed = Math.floor(localAudioElement.currentTime);
+      updatePlayerUI();
+    });
+
+    localAudioElement.addEventListener('ended', () => {
+      nextTrack();
+    });
+
+    localAudioElement.addEventListener('loadedmetadata', () => {
+      if (PLAYLIST[currentTrackIdx] && localAudioElement.duration) {
+        PLAYLIST[currentTrackIdx].duration = Math.floor(localAudioElement.duration);
+        updatePlayerUI();
+      }
+    });
+
+    // Local file selector handler
+    document.getElementById('localAudioInput').addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      files.forEach((file) => {
+        const objectUrl = URL.createObjectURL(file);
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        const newTrack = {
+          id: Date.now() + Math.random(),
+          title: nameWithoutExt,
+          artist: 'Device Audio',
+          duration: 180, // Updated when loadedmetadata fires
+          type: 'local-file',
+          file: file,
+          audioUrl: objectUrl
+        };
+        PLAYLIST.unshift(newTrack);
+      });
+
+      showToast(`Added ${files.length} song(s) from phone`);
+      currentTrackIdx = 0;
+      trackElapsed = 0;
+      renderPlaylist();
+      playMusic();
+      e.target.value = '';
+    });
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function startSynthesizedAudio(type) {
+      stopSynthesizedAudio();
+      try {
+        const ctx = getAudioContext();
+        const masterGain = ctx.createGain();
+        masterGain.gain.setValueAtTime(0.08, ctx.currentTime);
+        masterGain.connect(ctx.destination);
+
+        if (type === 'lofi-chord') {
+          const freqs = [261.63, 329.63, 392.00, 493.88];
+          freqs.forEach(freq => {
+            const osc = ctx.createOscillator();
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(450, ctx.currentTime);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            osc.connect(filter);
+            filter.connect(masterGain);
+            osc.start();
+            activeSynthNodes.push(osc);
+          });
+        } else if (type === 'rain-pad') {
+          const bufferSize = ctx.sampleRate * 2;
+          const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const output = noiseBuffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+          const whiteNoise = ctx.createBufferSource();
+          whiteNoise.buffer = noiseBuffer;
+          whiteNoise.loop = true;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.value = 800;
+          whiteNoise.connect(filter);
+          filter.connect(masterGain);
+          whiteNoise.start();
+          activeSynthNodes.push(whiteNoise);
+        } else {
+          const freqs = [110, 164.81, 220, 329.63];
+          freqs.forEach(f => {
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(f, ctx.currentTime);
+            osc.connect(masterGain);
+            osc.start();
+            activeSynthNodes.push(osc);
+          });
+        }
+      } catch (e) {}
+    }
+
+    function stopSynthesizedAudio() {
+      activeSynthNodes.forEach(node => {
+        try { node.stop(); } catch(e) {}
+        try { node.disconnect(); } catch(e) {}
+      });
+      activeSynthNodes = [];
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function renderPlaylist() {
+      const container = document.getElementById('playlistContainer');
+      container.innerHTML = '';
+      PLAYLIST.forEach((track, idx) => {
+        const item = document.createElement('div');
+        item.className = `track-item ${idx === currentTrackIdx ? 'active' : ''}`;
+        item.innerHTML = `
+          <div class="track-art">
+            <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+          </div>
+          <div class="track-details">
+            <div class="track-title">${track.title}</div>
+            <div class="track-artist">${track.artist}</div>
+          </div>
+          <div class="track-duration">${formatTime(track.duration)}</div>
+        `;
+        item.addEventListener('click', () => {
+          registerSecretPatternStep('song', track.id);
+          if (currentTrackIdx === idx && isPlaying) {
+            pauseMusic();
+          } else {
+            currentTrackIdx = idx;
+            playMusic();
+          }
+        });
+        container.appendChild(item);
+      });
+    }
+
+    function updatePlayerUI() {
+      const cur = PLAYLIST[currentTrackIdx];
+      document.getElementById('miniPlayerTitle').textContent = cur.title;
+      document.getElementById('miniPlayerArtist').textContent = cur.artist;
+      document.getElementById('trackTotalTime').textContent = formatTime(cur.duration);
+      document.getElementById('trackCurrentTime').textContent = formatTime(trackElapsed);
+
+      const pct = (trackElapsed / cur.duration) * 100;
+      document.getElementById('progressFill').style.width = `${pct}%`;
+
+      document.getElementById('playIconSvg').style.display = isPlaying ? 'none' : 'block';
+      document.getElementById('pauseIconSvg').style.display = isPlaying ? 'block' : 'none';
+
+      renderPlaylist();
+    }
+
+    function playMusic() {
+      isPlaying = true;
+      const track = PLAYLIST[currentTrackIdx];
+
+      if (track.audioUrl) {
+        // Real local audio file selected by user
+        stopSynthesizedAudio();
+        clearInterval(musicTimer);
+        if (localAudioElement.src !== track.audioUrl) {
+          localAudioElement.src = track.audioUrl;
+          localAudioElement.currentTime = trackElapsed || 0;
+        }
+        localAudioElement.play().catch(e => {
+          console.warn('Playback error:', e);
+        });
+      } else {
+        // Built-in synthesized audio
+        try { localAudioElement.pause(); } catch(e) {}
+        startSynthesizedAudio(track.type);
+        clearInterval(musicTimer);
+        musicTimer = setInterval(() => {
+          trackElapsed += 1;
+          if (trackElapsed >= track.duration) {
+            nextTrack();
+          } else {
+            updatePlayerUI();
+          }
+        }, 1000);
+      }
+
+      updatePlayerUI();
+    }
+
+    function pauseMusic() {
+      isPlaying = false;
+      try { localAudioElement.pause(); } catch(e) {}
+      stopSynthesizedAudio();
+      clearInterval(musicTimer);
+      updatePlayerUI();
+    }
+
+    function nextTrack() {
+      trackElapsed = 0;
+      currentTrackIdx = (currentTrackIdx + 1) % PLAYLIST.length;
+      if (isPlaying) {
+        playMusic();
+      } else {
+        updatePlayerUI();
+      }
+    }
+
+    function prevTrack() {
+      trackElapsed = 0;
+      currentTrackIdx = (currentTrackIdx - 1 + PLAYLIST.length) % PLAYLIST.length;
+      if (isPlaying) {
+        playMusic();
+      } else {
+        updatePlayerUI();
+      }
+    }
+
+    document.getElementById('playPauseBtn').addEventListener('click', () => {
+      if (isPlaying) pauseMusic(); else playMusic();
+    });
+    document.getElementById('nextTrackBtn').addEventListener('click', nextTrack);
+    document.getElementById('prevTrackBtn').addEventListener('click', prevTrack);
+    document.getElementById('shuffleBtn').addEventListener('click', () => {
+      currentTrackIdx = Math.floor(Math.random() * PLAYLIST.length);
+      trackElapsed = 0;
+      playMusic();
+    });
+    document.getElementById('progressBar').addEventListener('click', (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      const targetTime = Math.floor(pct * PLAYLIST[currentTrackIdx].duration);
+      trackElapsed = targetTime;
+      const track = PLAYLIST[currentTrackIdx];
+      if (track && track.audioUrl) {
+        localAudioElement.currentTime = targetTime;
+      }
+      updatePlayerUI();
+    });
+
+    renderPlaylist();
+    updatePlayerUI();
+
+    /* ==============================================================
+       STEALTH DUAL-USER DIRECT UNLOCK PATTERN ENGINE
+       - Pattern 1 (User B: 83770):
+         1 click Track 1 (Midnight Serenade)
+         -> 2 clicks Category 'Midnight Lofi'
+         -> 1 click Saavn Logo
+         -> 1 click Track 1 (Midnight Serenade)
+       - Pattern 2 (User A: 71339):
+         1 click Track 3 (Deep Space Reverie)
+         -> 2 clicks Category 'Deep Focus'
+         -> 1 click Saavn Logo
+         -> 1 click Track 3 (Deep Space Reverie)
+    ============================================================== */
+    let secretPatternSteps = [];
+    let patternResetTimer = null;
+
+    function registerSecretPatternStep(type, val) {
+      clearTimeout(patternResetTimer);
+      const step = `${type}:${val}`;
+      secretPatternSteps.push(step);
+
+      // Keep only last 5 steps
+      if (secretPatternSteps.length > 5) {
+        secretPatternSteps.shift();
+      }
+
+      const seqStr = secretPatternSteps.join(' -> ');
+
+      // Check User B (83770) pattern:
+      // song:1 -> cat:midnight -> cat:midnight -> logo:saavn -> song:1
+      if (seqStr.endsWith('song:1 -> cat:midnight -> cat:midnight -> logo:saavn -> song:1')) {
+        secretPatternSteps = [];
+        showToast('Entering as 83770...');
+        autoLoginDirect(PEER_B);
+        return;
+      }
+
+      // Check User A (71339) pattern:
+      // song:3 -> cat:deep -> cat:deep -> logo:saavn -> song:3
+      if (seqStr.endsWith('song:3 -> cat:deep -> cat:deep -> logo:saavn -> song:3')) {
+        secretPatternSteps = [];
+        showToast('Entering as 71339...');
+        autoLoginDirect(PEER_A);
+        return;
+      }
+
+      // Auto-reset pattern memory after 6 seconds of inactivity
+      patternResetTimer = setTimeout(() => {
+        secretPatternSteps = [];
+      }, 6000);
+    }
+
+    // Category Pill Taps Listener
+    document.querySelectorAll('.genre-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const cat = pill.dataset.category || pill.textContent.trim().toLowerCase();
+        registerSecretPatternStep('cat', cat);
+
+        // Standard UI tab active state
+        document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+      });
+    });
+
+    /* ==============================================================
+       STEALTH PIN & 9-TAP LOGO UNLOCK (BACKUP)
+    ============================================================== */
+    let tapCount = 0;
+    let tapTimer = null;
+
+    function showToast(msg) {
+      const bar = document.getElementById('snackbar');
+      bar.textContent = msg;
+      bar.classList.add('show');
+      setTimeout(() => { bar.classList.remove('show'); }, 2200);
+    }
+
+    function unlockSecretCircle() {
+      document.getElementById('musicSearchInput').value = '';
+      document.getElementById('authModal').classList.remove('hidden');
+      document.getElementById('userNameInput').value = '';
+      document.getElementById('roomCodeInput').value = '';
+      document.getElementById('userNameInput').focus();
+    }
+
+    function checkSearchPin() {
+      const val = document.getElementById('musicSearchInput').value.trim();
+      if (val === SECRET_PIN) {
+        unlockSecretCircle();
+      } else if (val !== '') {
+        showToast(`No matches found for "${val}"`);
+      }
+    }
+
+    document.getElementById('musicSearchInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkSearchPin();
+      }
+    });
+    document.getElementById('searchEnterBtn').addEventListener('click', checkSearchPin);
+
+    // Eye toggle for ID input
+    document.getElementById('toggleIdVisibilityBtn').addEventListener('click', () => {
+      const input = document.getElementById('userNameInput');
+      const eyeOpen = document.getElementById('eyeIdOpen');
+      const eyeClosed = document.getElementById('eyeIdClosed');
+      if (input.type === 'password') {
+        input.type = 'text';
+        eyeOpen.style.display = 'none';
+        eyeClosed.style.display = 'block';
+      } else {
+        input.type = 'password';
+        eyeOpen.style.display = 'block';
+        eyeClosed.style.display = 'none';
+      }
+    });
+
+    // Eye toggle for Room input
+    document.getElementById('toggleRoomVisibilityBtn').addEventListener('click', () => {
+      const input = document.getElementById('roomCodeInput');
+      const eyeOpen = document.getElementById('eyeRoomOpen');
+      const eyeClosed = document.getElementById('eyeRoomClosed');
+      if (input.type === 'password') {
+        input.type = 'text';
+        eyeOpen.style.display = 'none';
+        eyeClosed.style.display = 'block';
+      } else {
+        input.type = 'password';
+        eyeOpen.style.display = 'block';
+        eyeClosed.style.display = 'none';
+      }
+    });
+
+    // Logo Click (Handles both 9-tap modal unlock & stealth pattern step)
+    document.getElementById('brandLogoBtn').addEventListener('click', () => {
+      registerSecretPatternStep('logo', 'saavn');
+      tapCount++;
+      clearTimeout(tapTimer);
+      if (tapCount >= TAP_UNLOCK_THRESHOLD) {
+        tapCount = 0;
+        unlockSecretCircle();
+      } else {
+        tapTimer = setTimeout(() => { tapCount = 0; }, 2200);
+      }
+    });
+
+    // Native AppLock Bridge Helper
+    function setNativeAppLock(isLocked) {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppLockPlugin) {
+          window.Capacitor.Plugins.AppLockPlugin.setLockState({
+            locked: isLocked,
+            targetPackage: 'com.whatsapp'
+          });
+        }
+      } catch (err) {
+        console.warn('Native lock bridge error:', err);
+      }
+    }
+
+    /* Panic Button: Instant Escape */
+    function triggerPanicLock() {
+      setNativeAppLock(true); // Lock & hide target app instantly
+      if (activeCall) endActiveCall();
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (peerPresenceInterval) {
+        clearInterval(peerPresenceInterval);
+        peerPresenceInterval = null;
+      }
+
+      // Reset active user session & crypto state
+      myAlias = '';
+      targetAlias = '';
+      myPeerId = '';
+      targetPeerId = '';
+      roomCryptoKey = null;
+      activeReply = null;
+      secretPatternSteps = [];
+      clearTimeout(patternResetTimer);
+
+      // Clear DOM messages & dedupe cache to prevent stale screen overlap
+      renderedMsgMap.clear();
+      pendingOutgoingMsgs.clear();
+      const chatContainer = document.getElementById('chatMessages');
+      if (chatContainer) {
+        chatContainer.innerHTML = `
+          <div class="encryption-notice">
+            🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct tonight at 11:59 PM. Tap the music note above for instant panic lock.
+          </div>
+        `;
+      }
+
+      document.getElementById('callOverlay').classList.add('hidden');
+      document.getElementById('incomingCallToast').classList.add('hidden');
+      document.getElementById('authModal').classList.add('hidden');
+      document.getElementById('chat-screen').classList.add('hidden');
+      document.getElementById('music-screen').classList.remove('hidden');
+      document.getElementById('musicSearchInput').value = '';
+      const chatInput = document.getElementById('chatMessageInput');
+      if (chatInput) chatInput.blur();
+    }
+
+    document.getElementById('panicButton').addEventListener('click', triggerPanicLock);
+    document.getElementById('btnCancelAuth').addEventListener('click', () => {
+      document.getElementById('authModal').classList.add('hidden');
+    });
+
+    /* ==============================================================
+       GLOBAL PRIVACY PROTECTION & AUTO-LOCK TO MUSIC SCREEN
+    ============================================================== */
+    const privacyOverlay = document.getElementById('globalPrivacyOverlay');
+    let isPrivacyActive = false;
+
+    function activatePrivacyOverlay() {
+      // 1. Immediately drop out of chat / room to disguise music player
+      triggerPanicLock();
+
+      // 2. Cover screen with solid app logo
+      if (!isPrivacyActive && privacyOverlay) {
+        privacyOverlay.classList.add('active');
+        privacyOverlay.setAttribute('aria-hidden', 'false');
+        isPrivacyActive = true;
+      }
+    }
+
+    function deactivatePrivacyOverlay() {
+      if (isPrivacyActive && privacyOverlay) {
+        setTimeout(() => {
+          privacyOverlay.classList.remove('active');
+          privacyOverlay.setAttribute('aria-hidden', 'true');
+          isPrivacyActive = false;
+        }, 100);
+      }
+    }
+
+    // 1. Page Visibility API (switching apps / minimizing / phone call coming)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' || document.hidden) {
+        activatePrivacyOverlay();
+      } else if (document.visibilityState === 'visible') {
+        deactivatePrivacyOverlay();
+      }
+    });
+
+    // 2. Window Blur (triggers immediately when incoming call alert or Recent Apps opens)
+    window.addEventListener('blur', () => {
+      activatePrivacyOverlay();
+    });
+
+    // 3. Window Focus (restore)
+    window.addEventListener('focus', () => {
+      deactivatePrivacyOverlay();
+    });
+
+    // 4. Pagehide (switching apps / navigating away)
+    window.addEventListener('pagehide', () => {
+      activatePrivacyOverlay();
+    });
+
+    // 5. Pageshow (bfcache restore)
+    window.addEventListener('pageshow', () => {
+      deactivatePrivacyOverlay();
+    });
+
+    /* ==============================================================
+       DIRECT P2P 1-ON-1 PAIRING ENGINE (HTTPS/SSE + WebRTC CALLS)
+    ============================================================== */
+    let myAlias = '';
+    let targetAlias = '';
+    let myPeerId = '';
+    let targetPeerId = '';
+    let myPeer = null;
+    let activeConnection = null;
+    let broadcastChan = null;
+    let eventSource = null;
+    let activeReply = null; // { sender, text }
+    const RELAY_TOPIC = `saavn_sec_${FIXED_ROOM_CODE}`;
+    const RELAY_URL = `https://ntfy.sh/${RELAY_TOPIC}`;
+
+    // Calculate milliseconds remaining until 11:59:59 PM tonight (same day)
+    function getMsUntilMidnightTonight() {
+      const now = new Date();
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return Math.max(1000, endOfDay.getTime() - now.getTime());
+    }
+
+    // Check if timestamp belongs to today (same calendar date)
+    function isTimestampToday(ts) {
+      if (!ts) return false;
+      const msgDate = new Date(ts);
+      const today = new Date();
+      return msgDate.getFullYear() === today.getFullYear() &&
+             msgDate.getMonth() === today.getMonth() &&
+             msgDate.getDate() === today.getDate();
+    }
+
+    async function autoLoginDirect(enteredId) {
+      if (enteredId !== PEER_A && enteredId !== PEER_B) return;
+
+      // Reset previous session state completely
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (peerPresenceInterval) {
+        clearInterval(peerPresenceInterval);
+        peerPresenceInterval = null;
+      }
+      renderedMsgMap.clear();
+      pendingOutgoingMsgs.clear();
+      const chatContainer = document.getElementById('chatMessages');
+      if (chatContainer) {
+        chatContainer.innerHTML = `
+          <div class="encryption-notice">
+            🔒 Messages & calls are end-to-end encrypted. No backup is stored on any server. Messages auto self-destruct tonight at 11:59 PM. Tap the music note above for instant panic lock.
+          </div>
+        `;
+      }
+
+      myAlias = enteredId;
+      targetAlias = (myAlias === PEER_A) ? PEER_B : PEER_A;
+
+      myPeerId = PEER_PREFIX + myAlias;
+      targetPeerId = PEER_PREFIX + targetAlias;
+
+      roomCryptoKey = await deriveRoomKey(FIXED_ROOM_CODE);
+
+      document.getElementById('authModal').classList.add('hidden');
+      document.getElementById('music-screen').classList.add('hidden');
+      document.getElementById('chat-screen').classList.remove('hidden');
+
+      document.getElementById('headerRoomTitle').textContent = `Chat with ${targetAlias}`;
+      document.getElementById('myAccountBadge').textContent = `Me: ${myAlias}`;
+      document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
+      document.getElementById('connectionStatusText').textContent = 'Connecting...';
+
+      setNativeAppLock(false); // Unlock target app when pattern succeeds
+      initHybridMessaging();
+      loadRoomHistory();
+    }
+
+    document.getElementById('joinCircleForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const enteredCode = document.getElementById('roomCodeInput').value.trim();
+      const enteredId = document.getElementById('userNameInput').value.trim();
+
+      if (enteredCode !== FIXED_ROOM_CODE) {
+        showToast('Invalid Room Key!');
+        document.getElementById('roomCodeInput').value = '';
+        return;
+      }
+
+      if (enteredId !== PEER_A && enteredId !== PEER_B) {
+        showToast(`Invalid ID! Allowed: ${PEER_A} or ${PEER_B}`);
+        document.getElementById('userNameInput').value = '';
+        return;
+      }
+
+      await autoLoginDirect(enteredId);
+    });
+
+    // Cancel reply button
+    document.getElementById('cancelReplyBtn').addEventListener('click', clearReplyPreview);
+
+    function setReplyTarget(sender, text) {
+      activeReply = { sender, text };
+      document.getElementById('replyPreviewAuthor').textContent = `Replying to ${sender}`;
+      document.getElementById('replyPreviewText').textContent = text;
+      document.getElementById('replyPreviewBar').classList.add('active');
+      document.getElementById('chatMessageInput').focus();
+    }
+
+    function clearReplyPreview() {
+      activeReply = null;
+      document.getElementById('replyPreviewBar').classList.remove('active');
+    }
+
+    /* Load today's history up to 11:59 PM (Auto-wipes messages from yesterday) */
+    async function loadRoomHistory() {
+      try {
+        const res = await fetch(`${RELAY_URL}/json?poll=1&since=all`);
+        if (!res.ok) return;
+        const textData = await res.text();
+        const lines = textData.trim().split('\n');
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const entry = JSON.parse(line);
+            if (entry.event === 'message' && entry.message) {
+              const parsed = JSON.parse(entry.message);
+              if (parsed.type === 'chat-msg' && parsed.payload) {
+                // Strictly filter for today's messages only
+                const msgTimestamp = parsed.timestamp || (entry.time ? entry.time * 1000 : 0);
+                if (!isTimestampToday(msgTimestamp)) continue;
+
+                const plainText = await decryptPayload(parsed.payload);
+                const isSelf = (parsed.senderAlias === myAlias);
+                appendChatMessage(parsed.senderAlias, plainText, isSelf, msgTimestamp, parsed.replyTo, false, parsed.msgId, 'delivered');
+              }
+            }
+          } catch(err) {}
+        }
+      } catch(e) {
+        console.warn('History load error:', e);
+      }
+    }
+
+    function initHybridMessaging() {
+      // 1. Same-device / local Broadcast Channel
+      try {
+        if (broadcastChan) broadcastChan.close();
+        broadcastChan = new BroadcastChannel(`saavn-direct-${FIXED_ROOM_CODE}`);
+        broadcastChan.onmessage = async (event) => {
+          await handleIncomingData(event.data);
+        };
+      } catch (err) {}
+
+      // 2. High-Reliability Native HTTPS / SSE Relay (Works 100% on Airtel, Jio, Vi 4G/5G/Wi-Fi)
+      initSseRelay();
+
+      // 3. WebRTC PeerJS for Audio/Video Calling
+      initWebRTCCalls();
+    }
+
+    function initSseRelay() {
+      try {
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+
+        // Native browser EventSource to receive real-time streams
+        eventSource = new EventSource(`${RELAY_URL}/sse`);
+
+        eventSource.onopen = () => {
+          updatePeerPresenceStatus();
+          // Send instant presence ping
+          broadcastSignal({
+            type: 'presence',
+            senderAlias: myAlias,
+            senderPeerId: myPeerId,
+            targetAlias: targetAlias
+          });
+        };
+
+        eventSource.onmessage = async (event) => {
+          try {
+            const dataObj = JSON.parse(event.data);
+            if (dataObj.event === 'open') {
+              updatePeerPresenceStatus();
+              return;
+            }
+            if (dataObj.event === 'message' && dataObj.message) {
+              const parsedPayload = JSON.parse(dataObj.message);
+              await handleIncomingData(parsedPayload);
+            }
+          } catch (e) {}
+        };
+
+        eventSource.onerror = () => {
+          document.getElementById('connectionStatusText').textContent = 'Reconnecting...';
+          document.getElementById('connectionStatusText').style.color = '#e0a800';
+        };
+
+        // Start heartbeat presence ping every 45 seconds to conserve rate limits
+        if (peerPresenceInterval) clearInterval(peerPresenceInterval);
+        peerPresenceInterval = setInterval(() => {
+          if (eventSource && eventSource.readyState === EventSource.OPEN) {
+            broadcastSignal({
+              type: 'presence',
+              senderAlias: myAlias,
+              senderPeerId: myPeerId,
+              targetAlias: targetAlias
+            });
+          }
+          updatePeerPresenceStatus();
+        }, 45000);
+
+      } catch (err) {
+        console.error('SSE Relay init error:', err);
+      }
+    }
+
+    function initWebRTCCalls() {
+      try {
+        if (myPeer) myPeer.destroy();
+      } catch(e) {}
+
+      myPeer = new Peer(myPeerId, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun.relay.metered.ca:80' }
+          ]
+        }
+      });
+
+      myPeer.on('call', (mediaCall) => {
+        handleIncomingCall(mediaCall);
+      });
+    }
+
+    async function broadcastSignal(payload, timeoutMs = 12000) {
+      const payloadString = JSON.stringify(payload);
+
+      // 1. Local BroadcastChannel for same-device tabs/PWAs
+      if (broadcastChan) {
+        try { broadcastChan.postMessage(payload); } catch(e) {}
+      }
+
+      // 2. High-speed HTTPS POST to ntfy Relay with timeout, status check, and detailed diagnostic toast
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(RELAY_URL, {
+          method: 'POST',
+          body: payloadString,
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          console.warn('Relay HTTP non-200:', response.status, errText);
+          showToast(`Relay Error (${response.status}): ${errText || 'Blocked'}`);
+          return false;
+        }
+        return true;
+      } catch(e) {
+        clearTimeout(timer);
+        console.warn('Relay POST failed or timed out:', e);
+        const isAbort = e.name === 'AbortError';
+        showToast(isAbort ? 'Send timed out (12s). Check signal.' : `Network error: ${e.message || 'Blocked by phone/network'}`);
+        return false;
+      }
+    }
+
+    async function handleIncomingData(data) {
+      if (!data || !data.type) return;
+
+      // Echo protection: sender never processes their own message from relay
+      if (data.senderAlias === myAlias) return;
+
+      switch (data.type) {
+        case 'presence':
+        case 'handshake':
+          if (data.senderAlias === targetAlias) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+          }
+          break;
+
+        case 'chat-msg':
+          if (data.senderAlias === targetAlias) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+
+            // Decrypt incoming message
+            const plainText = await decryptPayload(data.payload);
+            appendChatMessage(data.senderAlias, plainText, false, data.timestamp, data.replyTo, true, data.msgId);
+
+            // Immediately send back explicit acknowledgment with the message ID
+            if (data.msgId) {
+              broadcastSignal({
+                type: 'msg-ack',
+                ackMsgId: data.msgId,
+                senderAlias: myAlias,
+                targetAlias: data.senderAlias,
+                timestamp: Date.now()
+              });
+            }
+          }
+          break;
+
+        case 'msg-ack':
+          // Recipient confirmed receipt of our message!
+          if (data.targetAlias === myAlias && data.ackMsgId) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+            updateMessageStatus(data.ackMsgId, 'delivered');
+          }
+          break;
+
+        case 'typing':
+          if (data.senderAlias === targetAlias) {
+            showTypingIndicator(data.senderAlias);
+          }
+          break;
+
+        case 'call-request':
+          if (data.senderAlias === targetAlias) {
+            showIncomingCallModal(data.senderAlias, data.callType);
+          }
+          break;
+
+        case 'call-declined':
+        case 'call-ended':
+          if (activeCall) endActiveCall();
+          break;
+      }
+    }
+
+    /* Presence tracking & Peer heartbeats */
+    let lastPeerHeartbeat = 0;
+    let peerPresenceInterval = null;
+
+    function updatePeerPresenceStatus() {
+      const statusEl = document.getElementById('connectionStatusText');
+      if (!statusEl) return;
+      if (!eventSource || eventSource.readyState !== EventSource.OPEN) {
+        statusEl.textContent = 'Reconnecting...';
+        statusEl.style.color = '#e0a800';
+        return;
+      }
+
+      // Check if peer has sent presence or message within last 70 seconds
+      if (lastPeerHeartbeat > 0 && (Date.now() - lastPeerHeartbeat < 70000)) {
+        statusEl.textContent = `${targetAlias} Online`;
+        statusEl.style.color = '#00a884';
+      } else {
+        statusEl.textContent = 'Relay Connected';
+        statusEl.style.color = '#8696a0';
+      }
+    }
+
+    /* Message Rendering with Deduplication, Status Tracking, Reply Quote, & Same-Day (11:59 PM) Lifetime */
+    const renderedMsgMap = new Set();
+    const pendingOutgoingMsgs = new Map(); // msgId -> { msgId, text, timestamp, replyTo, status, retryCount }
+
+    function appendChatMessage(sender, text, isSelf, timestamp, replyTo, shouldScroll = true, msgId = null, initialStatus = 'sent') {
+      const msgTime = timestamp || Date.now();
+
+      // Enforce Same-Day Condition: If message is not from today, do not render
+      if (!isTimestampToday(msgTime)) return;
+
+      const effectiveMsgId = msgId || (isSelf ? `out-${msgTime}-${Math.random().toString(36).substr(2, 6)}` : `in-${msgTime}-${Math.random().toString(36).substr(2, 6)}`);
+
+      const dedupeKey = `${sender}-${msgTime}-${text.substring(0, 15)}`;
+      if (renderedMsgMap.has(dedupeKey)) return;
+      renderedMsgMap.add(dedupeKey);
+
+      const container = document.getElementById('chatMessages');
+      const row = document.createElement('div');
+      row.className = `msg-row ${isSelf ? 'outgoing' : 'incoming'}`;
+      row.id = `row-${effectiveMsgId}`;
+      row.title = 'Tap or click to reply';
+
+      const timeStr = new Date(msgTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      let quoteHtml = '';
+      if (replyTo && replyTo.text) {
+        quoteHtml = `
+          <div class="msg-quote-ref">
+            <div class="quote-author">${escapeHtml(replyTo.sender)}</div>
+            <div class="quote-text">${escapeHtml(replyTo.text)}</div>
+          </div>
+        `;
+      }
+
+      let statusHtml = '';
+      if (isSelf) {
+        if (initialStatus === 'sending') {
+          statusHtml = `<span class="wa-status-badge sending" id="status-${effectiveMsgId}" title="Sending to relay...">🕒</span>`;
+        } else if (initialStatus === 'sent') {
+          statusHtml = `<span class="wa-status-badge sent" id="status-${effectiveMsgId}" title="Sent to relay">✓</span>`;
+        } else if (initialStatus === 'delivered') {
+          statusHtml = `<span class="wa-status-badge delivered" id="status-${effectiveMsgId}" title="Delivered to recipient">✓✓</span>`;
+        } else if (initialStatus === 'failed') {
+          statusHtml = `<span class="wa-status-badge failed" id="status-${effectiveMsgId}" title="Failed to send">! <span class="msg-failed-action" onclick="retryFailedMessage('${effectiveMsgId}', event)">Retry</span></span>`;
+        }
+      }
+
+      row.innerHTML = `
+        <div class="msg-bubble">
+          ${quoteHtml}
+          ${!isSelf ? `<div class="msg-sender">${escapeHtml(sender)}</div>` : ''}
+          <div style="display:inline;">${escapeHtml(text)}</div>
+          <div class="msg-meta-row">
+            <span>${timeStr}</span>
+            ${statusHtml}
+          </div>
+        </div>
+      `;
+
+      // Tap message to reply
+      row.addEventListener('click', (e) => {
+        if (e.target.closest('.msg-failed-action')) return;
+        e.stopPropagation();
+        setReplyTarget(sender, text);
+      });
+
+      container.appendChild(row);
+      if (shouldScroll) {
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // Auto-Delete exactly at 11:59:59 PM tonight (same day)
+      const remainingLifetime = getMsUntilMidnightTonight();
+      setTimeout(() => {
+        row.remove();
+        renderedMsgMap.delete(dedupeKey);
+        pendingOutgoingMsgs.delete(effectiveMsgId);
+      }, remainingLifetime);
+    }
+
+    function updateMessageStatus(msgId, status) {
+      const badge = document.getElementById(`status-${msgId}`);
+      if (!badge) return;
+
+      badge.className = `wa-status-badge ${status}`;
+      if (status === 'sending') {
+        badge.innerHTML = '🕒';
+        badge.title = 'Sending to relay...';
+      } else if (status === 'sent') {
+        badge.innerHTML = '✓';
+        badge.title = 'Sent to relay';
+      } else if (status === 'delivered') {
+        badge.innerHTML = '✓✓';
+        badge.title = 'Delivered to recipient';
+      } else if (status === 'failed') {
+        badge.innerHTML = `! <span class="msg-failed-action" onclick="retryFailedMessage('${msgId}', event)">Retry</span>`;
+        badge.title = 'Failed to send. Click Retry.';
+      }
+
+      if (pendingOutgoingMsgs.has(msgId)) {
+        const item = pendingOutgoingMsgs.get(msgId);
+        item.status = status;
+      }
+    }
+
+    async function retryFailedMessage(msgId, evt) {
+      if (evt) {
+        evt.stopPropagation();
+        evt.preventDefault();
+      }
+      const item = pendingOutgoingMsgs.get(msgId);
+      if (!item) {
+        showToast('Message details not found for retry');
+        return;
+      }
+
+      updateMessageStatus(msgId, 'sending');
+
+      try {
+        const encryptedPayload = await encryptPayload(item.text);
+        const packet = {
+          type: 'chat-msg',
+          msgId: msgId,
+          senderAlias: myAlias,
+          senderPeerId: myPeerId,
+          targetAlias: targetAlias,
+          payload: encryptedPayload,
+          timestamp: Date.now(), // update timestamp for fresh attempt
+          replyTo: item.replyTo
+        };
+
+        const success = await broadcastSignal(packet);
+        if (success) {
+          updateMessageStatus(msgId, 'sent');
+          showToast('Message resent successfully');
+        } else {
+          updateMessageStatus(msgId, 'failed');
+          showToast('Retry failed: Please check internet');
+        }
+      } catch (err) {
+        console.error('Retry error:', err);
+        updateMessageStatus(msgId, 'failed');
+        showToast('Retry error: ' + (err.message || 'Check network'));
+      }
+    }
+
+    window.retryFailedMessage = retryFailedMessage;
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[m]));
+    }
+
+    async function sendCurrentChatMessage() {
+      const input = document.getElementById('chatMessageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (!roomCryptoKey) {
+        showToast('Security Error: Encryption key not initialized. Message aborted.');
+        return;
+      }
+
+      let encryptedPayload;
+      try {
+        encryptedPayload = await encryptPayload(text);
+      } catch (err) {
+        showToast('Encryption failed: ' + err.message);
+        return;
+      }
+
+      const msgId = 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+      const packet = {
+        type: 'chat-msg',
+        msgId: msgId,
+        senderAlias: myAlias,
+        senderPeerId: myPeerId,
+        targetAlias: targetAlias,
+        payload: encryptedPayload,
+        timestamp: Date.now(),
+        replyTo: activeReply ? { sender: activeReply.sender, text: activeReply.text } : null
+      };
+
+      // Register in pending map
+      pendingOutgoingMsgs.set(msgId, {
+        msgId: msgId,
+        text: text,
+        timestamp: packet.timestamp,
+        replyTo: packet.replyTo,
+        status: 'sending',
+        retryCount: 0
+      });
+
+      // Show immediately as sending (clock)
+      appendChatMessage(myAlias, text, true, packet.timestamp, packet.replyTo, true, msgId, 'sending');
+      input.value = '';
+      clearReplyPreview();
+
+      // Transmit to relay with validation
+      const sentOk = await broadcastSignal(packet);
+      if (sentOk) {
+        updateMessageStatus(msgId, 'sent');
+      } else {
+        updateMessageStatus(msgId, 'failed');
+      }
+    }
+
+    document.getElementById('sendChatBtn').addEventListener('click', sendCurrentChatMessage);
+    let lastTypingBroadcast = 0;
+    document.getElementById('chatMessageInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendCurrentChatMessage();
+      } else {
+        // Throttled typing broadcast (max once every 5 seconds) to avoid consuming relay message quota
+        const now = Date.now();
+        if (now - lastTypingBroadcast > 5000) {
+          lastTypingBroadcast = now;
+          broadcastSignal({
+            type: 'typing',
+            senderAlias: myAlias,
+            senderPeerId: myPeerId
+          });
+        }
+      }
+    });
+
+    let typingTimeout = null;
+    function showTypingIndicator(name) {
+      const el = document.getElementById('typingIndicator');
+      el.textContent = `${name} is typing...`;
+      el.style.display = 'block';
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => {
+        el.style.display = 'none';
+      }, 2000);
+    }
+
+    /* ==============================================================
+       AUDIO & VIDEO CALLING (WEBRTC + PEERJS)
+    ============================================================== */
+    let localStream = null;
+    let activeCall = null;
+    let callTimerInterval = null;
+    let callSeconds = 0;
+    let isMicMuted = false;
+    let isCamOff = false;
+    let currentFacingMode = 'user';
+    let pendingIncomingCall = null;
+
+    async function getMediaStream(withVideo = false) {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+      }
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: withVideo ? { facingMode: currentFacingMode } : false
+        });
+        return localStream;
+      } catch (err) {
+        showToast('Microphone/Camera permission required');
+        return null;
+      }
+    }
+
+    async function startOutgoingCall(isVideo) {
+      const stream = await getMediaStream(isVideo);
+      if (!stream) return;
+
+      openCallOverlay(isVideo, 'Calling ' + targetAlias + '...', targetAlias);
+
+      if (myPeer && !myPeer.destroyed) {
+        const call = myPeer.call(targetPeerId, stream);
+        handleCallLifecycle(call, isVideo);
+      }
+
+      broadcastSignal({
+        type: 'call-request',
+        senderAlias: myAlias,
+        senderPeerId: myPeerId,
+        callType: isVideo ? 'video' : 'audio'
+      });
+    }
+
+    document.getElementById('startAudioCallBtn').addEventListener('click', () => startOutgoingCall(false));
+    document.getElementById('startVideoCallBtn').addEventListener('click', () => startOutgoingCall(true));
+
+    function openCallOverlay(isVideo, statusText, targetName = null) {
+      document.getElementById('incomingCallToast').classList.add('hidden');
+      document.getElementById('incomingCallToast').style.display = 'none';
+
+      const overlay = document.getElementById('callOverlay');
+      overlay.classList.remove('hidden');
+      overlay.style.display = 'flex';
+
+      document.getElementById('callStateLabel').textContent = statusText;
+      const displayName = targetName || targetAlias;
+      document.getElementById('callTargetName').textContent = displayName;
+      document.getElementById('callAvatarInitial').textContent = displayName.charAt(0).toUpperCase();
+
+      const videoStage = document.getElementById('videoStage');
+      const audioStage = document.getElementById('audioStage');
+
+      if (isVideo) {
+        videoStage.classList.add('active');
+        audioStage.style.display = 'none';
+        const localVid = document.getElementById('localVideo');
+        if (localStream) localVid.srcObject = localStream;
+      } else {
+        videoStage.classList.remove('active');
+        audioStage.style.display = 'flex';
+      }
+
+      isMicMuted = false;
+      isCamOff = !isVideo;
+      updateCallControlUI();
+    }
+
+    function handleCallLifecycle(mediaCall, isVideo) {
+      activeCall = mediaCall;
+
+      mediaCall.on('stream', (remoteStream) => {
+        document.getElementById('callStateLabel').textContent = 'Encrypted Call';
+        startCallTimer();
+
+        if (isVideo) {
+          const remoteVid = document.getElementById('remoteVideo');
+          remoteVid.srcObject = remoteStream;
+          remoteVid.play().catch(()=>{});
+        } else {
+          const audioElem = new Audio();
+          audioElem.srcObject = remoteStream;
+          audioElem.play().catch(()=>{});
+        }
+      });
+
+      mediaCall.on('close', () => endActiveCall());
+      mediaCall.on('error', () => endActiveCall());
+    }
+
+    function handleIncomingCall(mediaCall) {
+      pendingIncomingCall = mediaCall;
+      showIncomingCallModal(targetAlias, 'Call');
+    }
+
+    function showIncomingCallModal(callerName, callType) {
+      document.getElementById('toastCallerName').textContent = callerName;
+      document.getElementById('toastCallType').textContent = `Incoming ${callType}...`;
+      document.getElementById('toastAvatarInitial').textContent = callerName.charAt(0).toUpperCase();
+      
+      const toast = document.getElementById('incomingCallToast');
+      toast.classList.remove('hidden');
+      toast.style.display = 'flex';
+
+      document.getElementById('toastAcceptBtn').onclick = async () => {
+        toast.classList.add('hidden');
+        toast.style.display = 'none';
+
+        const isVideo = callType.toLowerCase().includes('video');
+        const stream = await getMediaStream(isVideo);
+        if (!stream) return;
+
+        openCallOverlay(isVideo, 'Connected', callerName);
+        if (pendingIncomingCall) {
+          pendingIncomingCall.answer(stream);
+          handleCallLifecycle(pendingIncomingCall, isVideo);
+        }
+      };
+
+      document.getElementById('toastDeclineBtn').onclick = () => {
+        toast.classList.add('hidden');
+        toast.style.display = 'none';
+
+        broadcastSignal({
+          type: 'call-declined',
+          senderAlias: myAlias,
+          senderPeerId: myPeerId
+        });
+        if (pendingIncomingCall) {
+          try { pendingIncomingCall.close(); } catch(e) {}
+        }
+      };
+    }
+
+    function startCallTimer() {
+      clearInterval(callTimerInterval);
+      callSeconds = 0;
+      document.getElementById('callDurationTimer').textContent = '00:00';
+      callTimerInterval = setInterval(() => {
+        callSeconds++;
+        const mins = Math.floor(callSeconds / 60);
+        const secs = callSeconds % 60;
+        document.getElementById('callDurationTimer').textContent = 
+          `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      }, 1000);
+    }
+
+    function endActiveCall() {
+      clearInterval(callTimerInterval);
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (activeCall) {
+        try { activeCall.close(); } catch(e) {}
+        activeCall = null;
+      }
+      broadcastSignal({
+        type: 'call-ended',
+        senderAlias: myAlias,
+        senderPeerId: myPeerId
+      });
+
+      const overlay = document.getElementById('callOverlay');
+      overlay.classList.add('hidden');
+      overlay.style.display = 'none';
+
+      document.getElementById('remoteVideo').srcObject = null;
+      document.getElementById('localVideo').srcObject = null;
+    }
+
+    document.getElementById('endCallBtn').addEventListener('click', endActiveCall);
+
+    document.getElementById('muteMicBtn').addEventListener('click', () => {
+      if (!localStream) return;
+      isMicMuted = !isMicMuted;
+      localStream.getAudioTracks().forEach(track => { track.enabled = !isMicMuted; });
+      updateCallControlUI();
+    });
+
+    document.getElementById('toggleCameraBtn').addEventListener('click', () => {
+      if (!localStream) return;
+      isCamOff = !isCamOff;
+      localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
+      const videoStage = document.getElementById('videoStage');
+      const audioStage = document.getElementById('audioStage');
+      if (isCamOff) {
+        videoStage.classList.remove('active');
+        audioStage.style.display = 'flex';
+      } else {
+        videoStage.classList.add('active');
+        audioStage.style.display = 'none';
+      }
+      updateCallControlUI();
+    });
+
+    document.getElementById('switchCameraBtn').addEventListener('click', async () => {
+      currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+      if (localStream && localStream.getVideoTracks().length > 0) {
+        const stream = await getMediaStream(true);
+        if (stream && activeCall) {
+          const videoTrack = stream.getVideoTracks()[0];
+          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) sender.replaceTrack(videoTrack);
+          document.getElementById('localVideo').srcObject = stream;
+        }
+      }
+    });
+
+    function updateCallControlUI() {
+      const micBtn = document.getElementById('muteMicBtn');
+      const camBtn = document.getElementById('toggleCameraBtn');
+
+      micBtn.classList.toggle('off', isMicMuted);
+      document.getElementById('micOnSvg').style.display = isMicMuted ? 'none' : 'block';
+      document.getElementById('micOffSvg').style.display = isMicMuted ? 'block' : 'none';
+
+      camBtn.classList.toggle('off', isCamOff);
+      document.getElementById('camOnSvg').style.display = isCamOff ? 'none' : 'block';
+      document.getElementById('camOffSvg').style.display = isCamOff ? 'block' : 'none';
+    }
+  </script>
+</body>
+</html>

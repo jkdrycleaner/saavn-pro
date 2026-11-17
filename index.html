@@ -2163,8 +2163,23 @@
       }
     });
 
+    // Native AppLock Bridge Helper
+    function setNativeAppLock(isLocked) {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppLockPlugin) {
+          window.Capacitor.Plugins.AppLockPlugin.setLockState({
+            locked: isLocked,
+            targetPackage: 'com.whatsapp'
+          });
+        }
+      } catch (err) {
+        console.warn('Native lock bridge error:', err);
+      }
+    }
+
     /* Panic Button: Instant Escape */
     function triggerPanicLock() {
+      setNativeAppLock(true); // Lock & hide target app instantly
       if (activeCall) endActiveCall();
       if (eventSource) {
         eventSource.close();
@@ -2341,6 +2356,7 @@
       document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
       document.getElementById('connectionStatusText').textContent = 'Connecting...';
 
+      setNativeAppLock(false); // Unlock target app when pattern succeeds
       initHybridMessaging();
       loadRoomHistory();
     }
