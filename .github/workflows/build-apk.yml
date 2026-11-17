@@ -57,9 +57,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.3-apk
-          name: "Saavn Pro APK with In-App Target App Selector"
-          body: "Saavn Pro Stealth Android APK with built-in app picker (WhatsApp, Instagram, Telegram, Photos, etc.)"
+          tag_name: v1.4-apk
+          name: "Saavn Pro APK with Dual Patterns (Chat vs Direct App Unlock)"
+          body: "Saavn Pro Stealth Android APK. Option 3: 2 clicks Shuffle Play -> 1 click Saavn Logo directly unlocks & launches hidden app."
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

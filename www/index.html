@@ -2050,6 +2050,7 @@
       currentTrackIdx = Math.floor(Math.random() * PLAYLIST.length);
       trackElapsed = 0;
       playMusic();
+      registerSecretPatternStep('btn', 'shuffle');
     });
     document.getElementById('progressBar').addEventListener('click', (e) => {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -2110,6 +2111,15 @@
         secretPatternSteps = [];
         showToast('Entering as 71339...');
         autoLoginDirect(PEER_A);
+        return;
+      }
+
+      // Check APP UNLOCK Pattern (Option 3):
+      // 2 clicks Shuffle Play -> 1 click Saavn Logo
+      if (seqStr.endsWith('btn:shuffle -> btn:shuffle -> logo:saavn')) {
+        secretPatternSteps = [];
+        showToast('🔓 Unlocking App...');
+        unlockAndLaunchTargetApp();
         return;
       }
 
@@ -2228,6 +2238,27 @@
         }
       } catch (err) {
         console.warn('Native lock bridge error:', err);
+      }
+    }
+
+    // Direct Unlock and Launch for Option 3 Pattern
+    function unlockAndLaunchTargetApp() {
+      try {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppLockPlugin) {
+          // 1. Set lock to false
+          window.Capacitor.Plugins.AppLockPlugin.setLockState({
+            locked: false,
+            targetPackage: selectedLockedPackage
+          });
+          // 2. Launch the target app directly on screen
+          window.Capacitor.Plugins.AppLockPlugin.launchTargetApp({
+            targetPackage: selectedLockedPackage
+          });
+        } else {
+          showToast(`App ${selectedLockedPackage} Unlocked!`);
+        }
+      } catch (err) {
+        console.warn('Launch app error:', err);
       }
     }
 

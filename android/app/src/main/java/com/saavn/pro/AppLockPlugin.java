@@ -44,6 +44,23 @@ public class AppLockPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void launchTargetApp(PluginCall call) {
+        String targetPkg = call.getString("targetPackage", "com.whatsapp");
+        try {
+            Intent launchIntent = getContext().getPackageManager().getLaunchIntentForPackage(targetPkg);
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(launchIntent);
+                call.resolve();
+                return;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        call.reject("Could not launch target package: " + targetPkg);
+    }
+
+    @PluginMethod
     public void openAccessibilitySettings(PluginCall call) {
         Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
