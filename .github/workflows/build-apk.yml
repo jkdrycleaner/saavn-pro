@@ -33,6 +33,11 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
+      - name: Generate Signed Debug Keystore
+        run: |
+          cd android/app
+          keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
@@ -52,9 +57,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.1-apk
-          name: "Saavn Pro APK (One UI 6 / S24 Ultra Supported)"
-          body: "Saavn Pro Stealth Android APK with Target SDK 34 compatibility for Samsung S24 Ultra."
+          tag_name: v1.2-apk
+          name: "Saavn Pro Signed APK (Samsung S24 Ultra Compatible)"
+          body: "Saavn Pro Stealth Android APK signed with V1+V2+V3 signatures and ARM64-v8a support for S24 Ultra."
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
