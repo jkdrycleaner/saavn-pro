@@ -57,9 +57,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.2-apk
-          name: "Saavn Pro Signed APK (Samsung S24 Ultra Compatible)"
-          body: "Saavn Pro Stealth Android APK signed with V1+V2+V3 signatures and ARM64-v8a support for S24 Ultra."
+          tag_name: v1.3-apk
+          name: "Saavn Pro APK with In-App Target App Selector"
+          body: "Saavn Pro Stealth Android APK with built-in app picker (WhatsApp, Instagram, Telegram, Photos, etc.)"
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
