@@ -9,6 +9,7 @@ public class AppProtectorService extends AccessibilityService {
 
     public static final String PREFS_NAME = "SaavnProSecurity";
     public static final String KEY_LOCKED = "is_target_locked";
+    public static final String KEY_HIDDEN = "is_target_hidden";
     public static final String KEY_TARGET_PKG = "target_package_name";
 
     @Override
@@ -16,12 +17,14 @@ public class AppProtectorService extends AccessibilityService {
         if (event == null || event.getPackageName() == null) return;
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        boolean isLocked = prefs.getBoolean(KEY_LOCKED, true);
+        boolean isLocked = prefs.getBoolean(KEY_LOCKED, false);
+        boolean isHidden = prefs.getBoolean(KEY_HIDDEN, false);
         String targetPkg = prefs.getString(KEY_TARGET_PKG, "com.whatsapp");
 
         String currentPkg = event.getPackageName().toString();
 
-        if (isLocked) {
+        // If either Lock OR Hide is active, protect against launch or discovery
+        if (isLocked || isHidden) {
             boolean isTarget = currentPkg.equalsIgnoreCase(targetPkg);
             boolean isSettingsInterference = false;
 

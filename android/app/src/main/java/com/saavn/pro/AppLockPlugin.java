@@ -14,31 +14,36 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class AppLockPlugin extends Plugin {
 
     @PluginMethod
-    public void setLockState(PluginCall call) {
-        Boolean locked = call.getBoolean("locked", true);
+    public void setSecurityConfig(PluginCall call) {
+        Boolean locked = call.getBoolean("locked", false);
+        Boolean hidden = call.getBoolean("hidden", false);
         String targetPkg = call.getString("targetPackage", "com.whatsapp");
 
         SharedPreferences prefs = getContext().getSharedPreferences(AppProtectorService.PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit()
             .putBoolean(AppProtectorService.KEY_LOCKED, locked)
+            .putBoolean(AppProtectorService.KEY_HIDDEN, hidden)
             .putString(AppProtectorService.KEY_TARGET_PKG, targetPkg)
             .apply();
 
         JSObject ret = new JSObject();
         ret.put("success", true);
         ret.put("locked", locked);
+        ret.put("hidden", hidden);
         ret.put("targetPackage", targetPkg);
         call.resolve(ret);
     }
 
     @PluginMethod
-    public void getLockState(PluginCall call) {
+    public void getSecurityConfig(PluginCall call) {
         SharedPreferences prefs = getContext().getSharedPreferences(AppProtectorService.PREFS_NAME, Context.MODE_PRIVATE);
-        boolean locked = prefs.getBoolean(AppProtectorService.KEY_LOCKED, true);
+        boolean locked = prefs.getBoolean(AppProtectorService.KEY_LOCKED, false);
+        boolean hidden = prefs.getBoolean(AppProtectorService.KEY_HIDDEN, false);
         String targetPkg = prefs.getString(AppProtectorService.KEY_TARGET_PKG, "com.whatsapp");
 
         JSObject ret = new JSObject();
         ret.put("locked", locked);
+        ret.put("hidden", hidden);
         ret.put("targetPackage", targetPkg);
         call.resolve(ret);
     }
