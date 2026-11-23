@@ -57,9 +57,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.8-apk
-          name: "Saavn Pro v16 - Real Read Receipts, Last Seen, 83770 Alerts & UI Wrapping Fixes"
-          body: "Official Saavn Pro v16 Release:\n- Fixed Blue Tick Bug (True read receipts: grey ✓ sent, grey ✓✓ delivered, blue ✓✓ only when chat opened)\n- Notification & Chime Tone exclusive to User 83770\n- Real-time Last Seen & Online presence in chat header\n- Keep mobile keyboard open on Send (No blur on send click)\n- Auto-scroll to latest message on opening chat\n- Fixed reply quote wrapping (no horizontal stretch/scroll)\n- PWA and native Android Capacitor build"
+          tag_name: v1.9-apk
+          name: "Saavn Pro v17 - S24 Ultra & Mobile Header Layout Fix (Zero Overlap)"
+          body: "Official Saavn Pro v17 Release:\n- S24 Ultra & Mobile Screen Header Optimization: All 5 action icons (Refresh, Voice Call, Video Call, App Locker, Panic Lock) now visible with zero overlap\n- Safe-area inset padding for phone notch & camera cutout\n- Bottom input bar height & send button shadow enhancement\n- Real Read Receipts (grey ✓, grey ✓✓, blue ✓✓), Last Seen status, and 83770 exclusive notification alerts"
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
