@@ -617,17 +617,17 @@
 
     /* WhatsApp Header */
     .chat-header {
-      padding: 6px 8px;
+      padding: 6px 10px;
       padding-top: calc(6px + env(safe-area-inset-top));
       background: var(--wa-header);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
+      gap: 8px;
       z-index: 60;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
       flex-shrink: 0;
-      min-height: 58px;
+      min-height: 60px;
       width: 100%;
       box-sizing: border-box;
       overflow: hidden;
@@ -636,22 +636,22 @@
     .chat-left-info {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       min-width: 0;
       flex: 1 1 auto;
       overflow: hidden;
     }
 
     .room-avatar {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       background: #00a884;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 0.92rem;
+      font-size: 0.95rem;
       flex-shrink: 0;
       color: #fff;
     }
@@ -663,45 +663,47 @@
       overflow: hidden;
       min-width: 0;
       flex: 1 1 auto;
-      gap: 2px;
+      gap: 1px;
     }
 
     .room-name-title {
-      font-size: 0.88rem;
-      font-weight: 600;
+      font-size: 0.92rem;
+      font-weight: 700;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       color: #e9edef;
-      line-height: 1.25;
+      line-height: 1.2;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+      min-width: 0;
     }
 
     .room-sub-meta {
-      font-size: 0.68rem;
+      font-size: 0.74rem;
       color: #8696a0;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       line-height: 1.2;
+      min-width: 0;
     }
 
     .chat-header-actions {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       flex-shrink: 0;
       margin-left: auto;
     }
 
     .icon-action-btn {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.05);
       border: none;
@@ -721,29 +723,35 @@
       stroke-width: 2.2;
     }
 
-    @media (max-width: 420px) {
+    @media (max-width: 480px) {
       .chat-header {
-        padding: 5px 6px;
-        gap: 4px;
-      }
-      .chat-left-info {
+        padding: 5px 8px;
         gap: 6px;
       }
+      .chat-left-info {
+        gap: 8px;
+      }
       .room-avatar {
-        width: 34px;
-        height: 34px;
-        font-size: 0.85rem;
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+      }
+      .room-name-title {
+        font-size: 0.88rem;
+      }
+      .room-sub-meta {
+        font-size: 0.72rem;
       }
       .chat-header-actions {
         gap: 3px;
       }
       .icon-action-btn {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
       }
       .icon-action-btn svg {
-        width: 16px;
-        height: 16px;
+        width: 15px;
+        height: 15px;
       }
     }
 
@@ -1546,7 +1554,7 @@
         <div class="room-name-meta">
           <div class="room-name-title">
             <span id="headerRoomTitle" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">Chat</span>
-            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v17</span>
+            <span style="font-size: 0.65rem; color: #8696a0; background: #182229; border: 1px solid #283742; padding: 1px 4px; border-radius: 4px; font-weight: 500; flex-shrink: 0;">v18</span>
           </div>
           <div class="room-sub-meta">
             <span id="myAccountBadge" style="color: #2BC5B4; font-weight: 600; flex-shrink: 0;"></span>
@@ -1929,8 +1937,9 @@
       { id: 1, title: 'Midnight Serenade', artist: 'Komorebi Lofi', duration: 165, type: 'lofi-chord', file: null, audioUrl: null },
       { id: 2, title: 'Tokyo Rain Walk', artist: 'Aethelgard Ambient', duration: 192, type: 'rain-pad', file: null, audioUrl: null },
       { id: 3, title: 'Deep Space Reverie', artist: 'Nebula Sounds', duration: 210, type: 'synth-drone', file: null, audioUrl: null },
-      { id: 4, title: 'Cafe Study Session', artist: 'Chilled Cow Studio', duration: 178, type: 'lofi-chord', file: null, audioUrl: null },
-      { id: 5, title: 'Emerald Dreams', artist: 'Subtle Waveform', duration: 185, type: 'synth-drone', file: null, audioUrl: null }
+      { id: 4, title: 'Jaadu Teri Nazar', artist: 'Udit Narayan • Darr', duration: 281, type: 'bollywood-classic', file: null, audioUrl: null },
+      { id: 5, title: 'Cafe Study Session', artist: 'Chilled Cow Studio', duration: 178, type: 'lofi-chord', file: null, audioUrl: null },
+      { id: 6, title: 'Emerald Dreams', artist: 'Subtle Waveform', duration: 185, type: 'synth-drone', file: null, audioUrl: null }
     ];
 
     let currentTrackIdx = 0;
@@ -2032,6 +2041,21 @@
           filter.connect(masterGain);
           whiteNoise.start();
           activeSynthNodes.push(whiteNoise);
+        } else if (type === 'bollywood-classic') {
+          // Jaadu Teri Nazar melodic & warm ambient chord progression
+          const notes = [293.66, 329.63, 369.99, 440.00, 587.33]; // D major scale notes (Darr feel)
+          notes.forEach((f, idx) => {
+            const osc = ctx.createOscillator();
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(600 + (idx * 120), ctx.currentTime);
+            osc.type = (idx % 2 === 0) ? 'sine' : 'triangle';
+            osc.frequency.setValueAtTime(f, ctx.currentTime);
+            osc.connect(filter);
+            filter.connect(masterGain);
+            osc.start();
+            activeSynthNodes.push(osc);
+          });
         } else {
           const freqs = [110, 164.81, 220, 329.63];
           freqs.forEach(f => {
@@ -2081,6 +2105,10 @@
           if (currentTrackIdx === idx && isPlaying) {
             pauseMusic();
           } else {
+            if (currentTrackIdx !== idx) {
+              trackElapsed = 0;
+              try { localAudioElement.currentTime = 0; } catch(e) {}
+            }
             currentTrackIdx = idx;
             playMusic();
           }
@@ -2148,6 +2176,7 @@
 
     function nextTrack() {
       trackElapsed = 0;
+      try { localAudioElement.currentTime = 0; } catch(e) {}
       currentTrackIdx = (currentTrackIdx + 1) % PLAYLIST.length;
       if (isPlaying) {
         playMusic();
@@ -2158,6 +2187,7 @@
 
     function prevTrack() {
       trackElapsed = 0;
+      try { localAudioElement.currentTime = 0; } catch(e) {}
       currentTrackIdx = (currentTrackIdx - 1 + PLAYLIST.length) % PLAYLIST.length;
       if (isPlaying) {
         playMusic();

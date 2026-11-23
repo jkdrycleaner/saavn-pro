@@ -57,9 +57,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.9-apk
-          name: "Saavn Pro v17 - S24 Ultra & Mobile Header Layout Fix (Zero Overlap)"
-          body: "Official Saavn Pro v17 Release:\n- S24 Ultra & Mobile Screen Header Optimization: All 5 action icons (Refresh, Voice Call, Video Call, App Locker, Panic Lock) now visible with zero overlap\n- Safe-area inset padding for phone notch & camera cutout\n- Bottom input bar height & send button shadow enhancement\n- Real Read Receipts (grey ✓, grey ✓✓, blue ✓✓), Last Seen status, and 83770 exclusive notification alerts"
+          tag_name: v2.0-apk
+          name: "Saavn Pro v18 - Jaadu Teri Nazar, Track Time Reset & S24 Ultra Header UI"
+          body: "Official Saavn Pro v18 Release:\n- Added 'Jaadu Teri Nazar' (Udit Narayan • Darr) full track with synthesized harmonics\n- Fixed audio track resumption bug: New tracks now cleanly start from 0:00 instead of previous song time\n- S24 Ultra / Mobile Header Layout Optimization: All 5 action icons, room name, avatar, and last seen / online status stay crisp with zero overlap\n- Real Read Receipts (✓, ✓✓, blue ✓✓), last seen tracker, and notification alerts restricted exclusively to 83770"
           files: android/app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
