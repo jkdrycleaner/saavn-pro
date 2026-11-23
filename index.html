@@ -779,6 +779,10 @@
       line-height: 1.35;
       position: relative;
       word-break: break-word;
+      overflow-wrap: break-word;
+      max-width: 82%;
+      min-width: 0;
+      box-sizing: border-box;
       user-select: text;
       box-shadow: 0 1px 2px rgba(0,0,0,0.3);
       transition: transform 0.15s ease;
@@ -819,10 +823,28 @@
       font-size: 0.72rem;
     }
 
-    .msg-quote-ref .quote-text {
-      white-space: nowrap;
+    .msg-quote-ref {
+      background: rgba(0, 0, 0, 0.2);
+      border-left: 3px solid #2BC5B4;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-bottom: 5px;
+      font-size: 0.75rem;
+      color: #c0c8cc;
       overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .msg-quote-ref .quote-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+      white-space: normal;
+      overflow: hidden;
+      word-break: break-word;
+      overflow-wrap: break-word;
       opacity: 0.85;
     }
 
@@ -860,8 +882,13 @@
     }
 
     .wa-status-badge.delivered {
+      color: #8696a0;
+      font-weight: 500;
+    }
+
+    .wa-status-badge.read {
       color: #53bdeb;
-      font-weight: bold;
+      font-weight: 700;
     }
 
     .wa-status-badge.failed {
@@ -1258,7 +1285,7 @@
           <line x1="22.5" y1="12" x2="22.5" y2="24" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
           <line x1="27" y1="16" x2="27" y2="20" stroke="#2BC5B4" stroke-width="2.6" stroke-linecap="round"/>
         </svg>
-        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v15</span></div>
+        <div class="brand-title">Saavn <span>PRO</span> <span style="font-size: 0.65rem; color: #8e9297; background: #222; border: 1px solid #333; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">v16</span></div>
       </button>
 
       <div class="search-box-wrapper">
@@ -1684,10 +1711,71 @@
     const PEER_A = "71339";
     const PEER_B = "83770";
 
-    // Disable OS Push Notifications for stealth
-    if (window.Notification) {
-      window.Notification.requestPermission = () => Promise.resolve('denied');
+    // Notification permission helper (Active only for 83770)
+    function ensureNotificationPermissionFor83770() {
+      if (myAlias === PEER_B && 'Notification' in window && Notification.permission === 'default') {
+        try {
+          Notification.requestPermission();
+        } catch(e) {}
+      }
     }
+
+    /* ==============================================================
+       AUDIO TONE & NOTIFICATIONS (EXCLUSIVE TO PEER_B: 83770)
+    ============================================================== */
+    function playPhoneNotificationSound() {
+      // Play a realistic chime tone using Web Audio API
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const now = audioCtx.currentTime;
+
+        // Two-tone pleasant notification chime
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(880, now); // A5
+        osc1.frequency.setValueAtTime(1318.51, now + 0.12); // E6
+        gain1.gain.setValueAtTime(0.3, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.5);
+
+        // Vibrate phone if supported
+        if ('vibrate' in navigator) {
+          navigator.vibrate([120, 80, 120]);
+        }
+      } catch (e) {
+        console.warn('Audio tone error:', e);
+      }
+    }
+
+    function trigger83770Notification(sender, text) {
+      // ONLY trigger if logged in as PEER_B (83770)
+      if (myAlias !== PEER_B) return;
+
+      playPhoneNotificationSound();
+
+      // If page is in background or chat hidden, show system notification
+      if (document.hidden || document.getElementById('chat-screen').classList.contains('hidden')) {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification(`Message from ${sender}`, {
+              body: text ? (text.length > 50 ? text.substring(0, 47) + '...' : text) : 'New message',
+              icon: 'icon-192.png',
+              badge: 'icon-192.png',
+              vibrate: [150, 100, 150]
+            });
+          } catch(e) {}
+        }
+      }
+    }
+
 
     /* AES-GCM 256-bit Client-Side Encryption Key derivation */
     let roomCryptoKey = null;
@@ -2419,6 +2507,16 @@
         `;
       }
 
+      if (myAlias && targetAlias) {
+        try {
+          broadcastSignal({
+            type: 'presence-leave',
+            senderAlias: myAlias,
+            targetAlias: targetAlias,
+            timestamp: Date.now()
+          });
+        } catch(e) {}
+      }
       document.getElementById('callOverlay').classList.add('hidden');
       document.getElementById('incomingCallToast').classList.add('hidden');
       document.getElementById('authModal').classList.add('hidden');
@@ -2563,8 +2661,13 @@
       document.getElementById('roomAvatarText').textContent = targetAlias.charAt(0);
       document.getElementById('connectionStatusText').textContent = 'Connecting...';
 
+      ensureNotificationPermissionFor83770();
       initHybridMessaging();
       loadRoomHistory();
+      // Announce presence and read all
+      setTimeout(() => {
+        sendReadReceiptForUnreadMessages();
+      }, 1000);
     }
 
     document.getElementById('joinCircleForm').addEventListener('submit', async (e) => {
@@ -2623,7 +2726,9 @@
 
                 const plainText = await decryptPayload(parsed.payload);
                 const isSelf = (parsed.senderAlias === myAlias);
-                appendChatMessage(parsed.senderAlias, plainText, isSelf, msgTimestamp, parsed.replyTo, false, parsed.msgId, 'delivered');
+                // Status defaults to 'sent' for self unless confirmed read, and never fake blue tick
+                const initialSt = isSelf ? (readMsgIdSet.has(parsed.msgId) ? 'read' : 'sent') : 'sent';
+                appendChatMessage(parsed.senderAlias, plainText, isSelf, msgTimestamp, parsed.replyTo, false, parsed.msgId, initialSt);
               }
             }
           } catch(err) {}
@@ -2631,6 +2736,10 @@
       } catch(e) {
         console.warn('History load error:', e);
       }
+      // Scroll to bottom so chat opens at the latest message!
+      scrollChatToBottom();
+      // Send read receipt for all incoming messages currently visible
+      sendReadReceiptForUnreadMessages();
     }
 
     function initHybridMessaging() {
@@ -2783,14 +2892,22 @@
         case 'chat-msg':
           if (data.senderAlias === targetAlias) {
             lastPeerHeartbeat = Date.now();
+            peerLastSeenTimestamp = Date.now();
+            localStorage.setItem('saavn_last_seen_' + FIXED_ROOM_CODE, peerLastSeenTimestamp.toString());
             updatePeerPresenceStatus();
 
             // Decrypt incoming message
             const plainText = await decryptPayload(data.payload);
             appendChatMessage(data.senderAlias, plainText, false, data.timestamp, data.replyTo, true, data.msgId);
 
-            // Immediately send back explicit acknowledgment with the message ID
+            // Trigger notification & ringtone ONLY for 83770
+            trigger83770Notification(data.senderAlias, plainText);
+
+            // Check if chat screen is currently visible & active
+            const isChatActive = !document.getElementById('chat-screen').classList.contains('hidden') && !document.hidden;
+
             if (data.msgId) {
+              // 1. Send delivery confirmation (✓✓ grey)
               broadcastSignal({
                 type: 'msg-ack',
                 ackMsgId: data.msgId,
@@ -2798,16 +2915,73 @@
                 targetAlias: data.senderAlias,
                 timestamp: Date.now()
               });
+
+              // 2. If user is actively inside chat window, send read receipt (✓✓ blue)
+              if (isChatActive) {
+                broadcastSignal({
+                  type: 'msg-read',
+                  readMsgId: data.msgId,
+                  senderAlias: myAlias,
+                  targetAlias: data.senderAlias,
+                  timestamp: Date.now()
+                });
+              }
             }
           }
           break;
 
         case 'msg-ack':
-          // Recipient confirmed receipt of our message!
+          // Recipient phone received the message -> DELIVERED (✓✓ Grey)
           if (data.targetAlias === myAlias && data.ackMsgId) {
             lastPeerHeartbeat = Date.now();
             updatePeerPresenceStatus();
-            updateMessageStatus(data.ackMsgId, 'delivered');
+            // Don't downgrade if already read
+            if (!readMsgIdSet.has(data.ackMsgId)) {
+              updateMessageStatus(data.ackMsgId, 'delivered');
+            }
+          }
+          break;
+
+        case 'msg-read':
+          // Recipient actively opened and read message -> READ (✓✓ Blue)
+          if (data.targetAlias === myAlias && data.readMsgId) {
+            lastPeerHeartbeat = Date.now();
+            readMsgIdSet.add(data.readMsgId);
+            updatePeerPresenceStatus();
+            updateMessageStatus(data.readMsgId, 'read');
+          }
+          break;
+
+        case 'msg-read-all':
+          // Recipient entered the chat window -> Mark all pending outgoing as READ (✓✓ Blue)
+          if (data.targetAlias === myAlias) {
+            lastPeerHeartbeat = Date.now();
+            updatePeerPresenceStatus();
+            document.querySelectorAll('.wa-status-badge.sent, .wa-status-badge.delivered').forEach(b => {
+              b.className = 'wa-status-badge read';
+              b.innerHTML = '✓✓';
+              b.title = 'Read by recipient';
+              const mId = b.id.replace('status-', '');
+              if (mId) readMsgIdSet.add(mId);
+            });
+          }
+          break;
+
+        case 'presence':
+          if (data.senderAlias === targetAlias) {
+            lastPeerHeartbeat = Date.now();
+            peerLastSeenTimestamp = Date.now();
+            localStorage.setItem('saavn_last_seen_' + FIXED_ROOM_CODE, peerLastSeenTimestamp.toString());
+            updatePeerPresenceStatus();
+          }
+          break;
+
+        case 'presence-leave':
+          if (data.senderAlias === targetAlias) {
+            peerLastSeenTimestamp = data.timestamp || Date.now();
+            lastPeerHeartbeat = 0; // mark offline
+            localStorage.setItem('saavn_last_seen_' + FIXED_ROOM_CODE, peerLastSeenTimestamp.toString());
+            updatePeerPresenceStatus();
           }
           break;
 
@@ -2834,6 +3008,42 @@
     let lastPeerHeartbeat = 0;
     let peerPresenceInterval = null;
 
+    
+    const readMsgIdSet = new Set();
+    let peerLastSeenTimestamp = parseInt(localStorage.getItem('saavn_last_seen_' + FIXED_ROOM_CODE) || '0', 10);
+
+    function formatLastSeen(ts) {
+      if (!ts || ts <= 0) return 'Offline';
+      const d = new Date(ts);
+      const now = new Date();
+      const isToday = (d.toDateString() === now.toDateString());
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (isToday) {
+        return `Last seen today at ${timeStr}`;
+      }
+      return `Last seen ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${timeStr}`;
+    }
+
+    function scrollChatToBottom() {
+      const container = document.getElementById('chatMessages');
+      if (container) {
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
+      }
+    }
+
+    function sendReadReceiptForUnreadMessages() {
+      if (!targetAlias || !myAlias) return;
+      // Send a read receipt packet indicating we are viewing the chat
+      broadcastSignal({
+        type: 'msg-read-all',
+        readerAlias: myAlias,
+        targetAlias: targetAlias,
+        timestamp: Date.now()
+      });
+    }
+
     function updatePeerPresenceStatus() {
       const statusEl = document.getElementById('connectionStatusText');
       if (!statusEl) return;
@@ -2843,10 +3053,12 @@
         return;
       }
 
-      // Check if peer has sent presence or message within last 70 seconds
+      // If peer was active within last 70 seconds
       if (lastPeerHeartbeat > 0 && (Date.now() - lastPeerHeartbeat < 70000)) {
-        statusEl.textContent = `${targetAlias} Online`;
-        statusEl.style.color = '#00a884';
+        statusEl.innerHTML = `<span style="color:#00a884; font-weight:700;">🟢 Online</span>`;
+      } else if (peerLastSeenTimestamp > 0) {
+        statusEl.textContent = formatLastSeen(peerLastSeenTimestamp);
+        statusEl.style.color = '#8696a0';
       } else {
         statusEl.textContent = 'Relay Connected';
         statusEl.style.color = '#8696a0';
@@ -2894,7 +3106,9 @@
         } else if (initialStatus === 'sent') {
           statusHtml = `<span class="wa-status-badge sent" id="status-${effectiveMsgId}" title="Sent to relay">✓</span>`;
         } else if (initialStatus === 'delivered') {
-          statusHtml = `<span class="wa-status-badge delivered" id="status-${effectiveMsgId}" title="Delivered to recipient">✓✓</span>`;
+          statusHtml = `<span class="wa-status-badge delivered" id="status-${effectiveMsgId}" title="Delivered">✓✓</span>`;
+        } else if (initialStatus === 'read') {
+          statusHtml = `<span class="wa-status-badge read" id="status-${effectiveMsgId}" title="Read by recipient">✓✓</span>`;
         } else if (initialStatus === 'failed') {
           statusHtml = `<span class="wa-status-badge failed" id="status-${effectiveMsgId}" title="Failed to send">! <span class="msg-failed-action" onclick="retryFailedMessage('${effectiveMsgId}', event)">Retry</span></span>`;
         }
@@ -2947,6 +3161,9 @@
       } else if (status === 'delivered') {
         badge.innerHTML = '✓✓';
         badge.title = 'Delivered to recipient';
+      } else if (status === 'read') {
+        badge.innerHTML = '✓✓';
+        badge.title = 'Read by recipient';
       } else if (status === 'failed') {
         badge.innerHTML = `! <span class="msg-failed-action" onclick="retryFailedMessage('${msgId}', event)">Retry</span>`;
         badge.title = 'Failed to send. Click Retry.';
@@ -3061,7 +3278,21 @@
       }
     }
 
-    document.getElementById('sendChatBtn').addEventListener('click', sendCurrentChatMessage);
+    const sendBtnEl = document.getElementById('sendChatBtn');
+    // Prevent focus loss so mobile virtual keyboard stays open!
+    sendBtnEl.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+    });
+    sendBtnEl.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+    sendBtnEl.addEventListener('click', (e) => {
+      sendCurrentChatMessage();
+      const inp = document.getElementById('chatMessageInput');
+      if (inp) {
+        inp.focus();
+      }
+    });
     let lastTypingBroadcast = 0;
     document.getElementById('chatMessageInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
