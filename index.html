@@ -455,10 +455,52 @@
       cursor: pointer;
     }
 
-    .genre-pill.active {
-      background: var(--accent);
-      color: #0b221e;
-      font-weight: 700;
+    .switch-toggle {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #2b2e33;
+      transition: .3s;
+      border-radius: 24px;
+      border: 1px solid #3e444c;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #fff;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    .switch-toggle input:checked + .toggle-slider {
+      background-color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .switch-toggle input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+      background-color: #0d2621;
     }
 
     /* =================================================== */
@@ -1524,6 +1566,22 @@
       <h3 class="auth-title">Protect Multiple Apps</h3>
       <p class="auth-desc">Turn on Lock or Hide switches for any app installed on your phone.</p>
 
+      <!-- Alert Notification Device Switch -->
+      <div style="background: rgba(43, 197, 180, 0.1); border: 1px solid rgba(43, 197, 180, 0.3); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px;">
+            🔔 <span>Message Alert Device</span>
+          </div>
+          <div style="font-size: 0.68rem; color: #aebac1; line-height: 1.2;">
+            Enable sound chime &amp; notification on this physical phone only
+          </div>
+        </div>
+        <label class="switch-toggle" style="margin-left: 8px; flex-shrink: 0; cursor: pointer;">
+          <input type="checkbox" id="deviceAlertToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
       <!-- Search Installed Apps -->
       <div style="margin: 10px 0 6px 0;">
         <input type="text" id="appFilterSearchInput" class="form-control" placeholder="🔍 Search installed apps..." style="padding: 8px 12px; font-size: 13px;">
@@ -1765,9 +1823,10 @@
     const PEER_A = "71339";
     const PEER_B = "83770";
 
-    // Notification permission helper (Active only for 83770)
+    // Notification permission helper (Active only for 83770 when device alert is enabled)
     function ensureNotificationPermissionFor83770() {
-      if (myAlias === PEER_B && 'Notification' in window && Notification.permission === 'default') {
+      const isAlertDevice = localStorage.getItem('saavn_notify_device') === 'true';
+      if (isAlertDevice && 'Notification' in window && Notification.permission === 'default') {
         try {
           Notification.requestPermission();
         } catch(e) {}
@@ -1775,7 +1834,7 @@
     }
 
     /* ==============================================================
-       AUDIO TONE & NOTIFICATIONS (EXCLUSIVE TO PEER_B: 83770)
+       AUDIO TONE & NOTIFICATIONS (EXCLUSIVE TO PEER_B: 83770 ON THIS DEVICE)
     ============================================================== */
     function playPhoneNotificationSound() {
       // Play a realistic chime tone using Web Audio API
@@ -1810,8 +1869,15 @@
     }
 
     function trigger83770Notification(sender, text) {
-      // ONLY trigger if logged in as PEER_B (83770)
+      // Check 1: ONLY trigger if logged in as PEER_B (83770)
       if (myAlias !== PEER_B) return;
+
+      // Check 2: ONLY trigger if this physical device has explicitly enabled Alert Notifications
+      const isAlertDevice = localStorage.getItem('saavn_notify_device') === 'true';
+      if (!isAlertDevice) {
+        // Silent on all other devices/phones even if 83770 is logged in!
+        return;
+      }
 
       playPhoneNotificationSound();
 
@@ -2518,6 +2584,12 @@
     }
 
     function openAppLockModal() {
+      const isAlertDevice = localStorage.getItem('saavn_notify_device') === 'true';
+      const alertToggle = document.getElementById('deviceAlertToggle');
+      if (alertToggle) {
+        alertToggle.checked = isAlertDevice;
+      }
+
       loadDeviceInstalledApps().then(() => {
         appLockModal.classList.remove('hidden');
       });
@@ -2538,10 +2610,24 @@
         localStorage.setItem('saavn_locked_apps_list', JSON.stringify(Array.from(lockedAppsSet)));
         localStorage.setItem('saavn_hidden_apps_list', JSON.stringify(Array.from(hiddenAppsSet)));
 
+        // Save Alert Notification preference for this specific physical device
+        const alertToggle = document.getElementById('deviceAlertToggle');
+        if (alertToggle) {
+          if (alertToggle.checked) {
+            localStorage.setItem('saavn_notify_device', 'true');
+            if ('Notification' in window && Notification.permission === 'default') {
+              try { Notification.requestPermission(); } catch(e) {}
+            }
+          } else {
+            localStorage.removeItem('saavn_notify_device');
+          }
+        }
+
         syncNativeSecurityConfig();
         appLockModal.classList.add('hidden');
 
-        showToast(`Saved! Locked: ${lockedAppsSet.size} apps | Hidden: ${hiddenAppsSet.size} apps`);
+        const alertStatus = alertToggle && alertToggle.checked ? 'Alerts: ON (This phone)' : 'Alerts: OFF';
+        showToast(`Saved! ${alertStatus} | Locked: ${lockedAppsSet.size} apps`);
       });
     }
 
