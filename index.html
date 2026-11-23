@@ -659,17 +659,18 @@
 
     /* WhatsApp Header */
     .chat-header {
-      padding: 6px 10px;
-      padding-top: calc(6px + env(safe-area-inset-top));
+      padding: 5px 8px;
+      padding-top: calc(5px + env(safe-area-inset-top));
       background: var(--wa-header);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
       z-index: 60;
       box-shadow: 0 1px 3px rgba(0,0,0,0.4);
       flex-shrink: 0;
-      min-height: 60px;
+      min-height: 52px;
+      height: 52px;
       width: 100%;
       box-sizing: border-box;
       overflow: hidden;
@@ -678,22 +679,22 @@
     .chat-left-info {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-width: 0;
       flex: 1 1 auto;
       overflow: hidden;
     }
 
     .room-avatar {
-      width: 38px;
-      height: 38px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       background: #00a884;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 0.85rem;
       flex-shrink: 0;
       color: #fff;
     }
@@ -705,11 +706,11 @@
       overflow: hidden;
       min-width: 0;
       flex: 1 1 auto;
-      gap: 1px;
+      gap: 0px;
     }
 
     .room-name-title {
-      font-size: 0.92rem;
+      font-size: 0.85rem;
       font-weight: 700;
       white-space: nowrap;
       overflow: hidden;
@@ -718,16 +719,16 @@
       line-height: 1.2;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       min-width: 0;
     }
 
     .room-sub-meta {
-      font-size: 0.74rem;
+      font-size: 0.68rem;
       color: #8696a0;
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -738,14 +739,14 @@
     .chat-header-actions {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 4px;
       flex-shrink: 0;
       margin-left: auto;
     }
 
     .icon-action-btn {
-      width: 32px;
-      height: 32px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       background: rgba(255, 255, 255, 0.05);
       border: none;
@@ -760,40 +761,42 @@
     }
 
     .icon-action-btn svg {
-      width: 17px;
-      height: 17px;
+      width: 15px;
+      height: 15px;
       stroke-width: 2.2;
     }
 
     @media (max-width: 480px) {
       .chat-header {
-        padding: 5px 8px;
-        gap: 6px;
+        padding: 4px 6px;
+        min-height: 50px;
+        height: 50px;
+        gap: 5px;
       }
       .chat-left-info {
-        gap: 8px;
+        gap: 6px;
       }
       .room-avatar {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
+        width: 32px;
+        height: 32px;
+        font-size: 0.8rem;
       }
       .room-name-title {
-        font-size: 0.88rem;
+        font-size: 0.8rem;
       }
       .room-sub-meta {
-        font-size: 0.72rem;
+        font-size: 0.65rem;
       }
       .chat-header-actions {
         gap: 3px;
       }
       .icon-action-btn {
-        width: 30px;
-        height: 30px;
+        width: 28px;
+        height: 28px;
       }
       .icon-action-btn svg {
-        width: 15px;
-        height: 15px;
+        width: 14px;
+        height: 14px;
       }
     }
 
@@ -811,10 +814,10 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
-      padding: 12px 10px;
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       -webkit-overflow-scrolling: touch;
       background-color: #0b141a;
       background-image: radial-gradient(#1a2730 1px, transparent 1px);
@@ -825,20 +828,20 @@
       align-self: center;
       background: #182229;
       color: #ffd279;
-      font-size: 0.72rem;
-      padding: 6px 12px;
-      border-radius: 8px;
+      font-size: 0.68rem;
+      padding: 4px 10px;
+      border-radius: 6px;
       text-align: center;
       max-width: 90%;
-      margin: 4px 0 8px;
+      margin: 2px 0 6px;
       box-shadow: 0 1px 2px rgba(0,0,0,0.3);
-      line-height: 1.35;
+      line-height: 1.3;
     }
 
     .msg-row {
       display: flex;
       flex-direction: column;
-      max-width: 80%;
+      max-width: 82%;
       margin-bottom: 2px;
       cursor: pointer;
     }
@@ -854,14 +857,14 @@
     }
 
     .msg-bubble {
-      padding: 6px 10px 4px 10px;
+      padding: 5px 9px 3px 9px;
       border-radius: 8px;
-      font-size: 0.92rem;
-      line-height: 1.35;
+      font-size: 0.85rem;
+      line-height: 1.3;
       position: relative;
       word-break: break-word;
       overflow-wrap: break-word;
-      max-width: 82%;
+      max-width: 85%;
       min-width: 0;
       box-sizing: border-box;
       user-select: text;
@@ -1054,11 +1057,11 @@
 
     /* WhatsApp Bottom Input Bar */
     .chat-input-bar {
-      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
       background: var(--wa-header);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-shrink: 0;
       box-sizing: border-box;
       width: 100%;
@@ -1071,9 +1074,9 @@
       display: flex;
       align-items: center;
       background: var(--wa-input-bg);
-      border-radius: 24px;
-      padding: 0 14px;
-      height: 44px;
+      border-radius: 20px;
+      padding: 0 12px;
+      height: 38px;
       box-sizing: border-box;
     }
 
@@ -1083,14 +1086,14 @@
       background: transparent;
       border: none;
       color: #fff;
-      font-size: 15px;
+      font-size: 14px;
       outline: none;
       line-height: 1.3;
     }
 
     .chat-send-btn {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
       background: #00a884;
       border: none;
@@ -1102,16 +1105,21 @@
       flex-shrink: 0;
       box-shadow: 0 2px 6px rgba(0, 168, 132, 0.4);
       transition: transform 0.15s ease, background 0.15s ease;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .chat-send-btn svg {
-      width: 20px;
-      height: 20px;
+      width: 17px;
+      height: 17px;
       fill: currentColor;
+      pointer-events: none;
     }
 
     .chat-send-btn:active {
-      transform: scale(0.94);
+      transform: scale(0.92);
+      background: #028e70;
     }
 
     /* =================================================== */
@@ -3441,19 +3449,21 @@
     }
 
     const sendBtnEl = document.getElementById('sendChatBtn');
-    // Prevent focus loss so mobile virtual keyboard stays open!
+    
+    // Robust tap handling for mobile virtual keyboard and instant sending
     sendBtnEl.addEventListener('pointerdown', (e) => {
+      // Prevent taking focus away from input
       e.preventDefault();
-    });
-    sendBtnEl.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-    }, { passive: false });
-    sendBtnEl.addEventListener('click', (e) => {
       sendCurrentChatMessage();
       const inp = document.getElementById('chatMessageInput');
-      if (inp) {
-        inp.focus();
-      }
+      if (inp) inp.focus();
+    });
+
+    sendBtnEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      sendCurrentChatMessage();
+      const inp = document.getElementById('chatMessageInput');
+      if (inp) inp.focus();
     });
     let lastTypingBroadcast = 0;
     document.getElementById('chatMessageInput').addEventListener('keydown', (e) => {
